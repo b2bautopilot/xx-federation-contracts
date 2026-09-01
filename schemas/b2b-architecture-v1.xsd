@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema
+  xmlns:xs="http://www.w3.org/2001/XMLSchema"
+  xmlns:bay="urn:baylife:system-specification:4.0"
+  xmlns:b2b="urn:b2b:architecture:1.0"
+  targetNamespace="urn:b2b:architecture:1.0"
+  elementFormDefault="qualified"
+  attributeFormDefault="unqualified"
+  version="1.0.0">
+
+  <xs:import namespace="urn:baylife:system-specification:4.0" schemaLocation="system-specification-v4.xsd"/>
+
+  <!-- Concrete B2B Components -->
+  <xs:element name="sovereign-control-plane" substitutionGroup="bay:component" type="b2b:controlPlaneType"/>
+  <xs:element name="enterprise-airlock-gateway" substitutionGroup="bay:component" type="b2b:airlockGatewayType"/>
+  <xs:element name="payload-blind-relay" substitutionGroup="bay:component" type="b2b:relayCellType"/>
+  <xs:element name="userspace-wireguard-mesh" substitutionGroup="bay:component" type="b2b:wireguardMeshType"/>
+  <xs:element name="sandboxed-agent-runtime" substitutionGroup="bay:component" type="b2b:agentRuntimeType"/>
+  <xs:element name="admin-portal" substitutionGroup="bay:component" type="b2b:portalType"/>
+  <xs:element name="operator-cockpit" substitutionGroup="bay:component" type="b2b:cockpitType"/>
+  <xs:element name="simulation-infrastructure" substitutionGroup="bay:component" type="b2b:simInfraType"/>
+  <xs:element name="business-service-contract" substitutionGroup="bay:component" type="b2b:serviceContractType"/>
+
+  <xs:complexType name="controlPlaneType">
+    <xs:complexContent>
+      <xs:extension base="bay:componentType">
+        <xs:sequence>
+          <xs:element name="grpc-endpoint" type="bay:nonBlankStringType"/>
+          <xs:element name="http-endpoint" type="bay:nonBlankStringType"/>
+          <xs:element name="postgres-migrations-count" type="xs:positiveInteger"/>
+          <xs:element name="advisory-lock-hex" type="bay:nonBlankStringType"/>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <xs:complexType name="airlockGatewayType">
+    <xs:complexContent>
+      <xs:extension base="bay:componentType">
+        <xs:sequence>
+          <xs:element name="inbound-public-listeners" type="xs:boolean"/>
+          <xs:element name="spiffe-trust-domain" type="bay:nonBlankStringType"/>
+          <xs:element name="outbound-only" type="xs:boolean"/>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <xs:complexType name="relayCellType">
+    <xs:complexContent>
+      <xs:extension base="bay:componentType">
+        <xs:sequence>
+          <xs:element name="circuit-protocol" type="bay:nonBlankStringType"/>
+          <xs:element name="max-connection-duration-hours" type="xs:positiveInteger"/>
+          <xs:element name="max-connection-bandwidth-gib" type="xs:positiveInteger"/>
+          <xs:element name="payload-blind" type="xs:boolean"/>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <xs:complexType name="wireguardMeshType">
+    <xs:complexContent>
+      <xs:extension base="bay:componentType">
+        <xs:sequence>
+          <xs:element name="userspace-engine" type="bay:nonBlankStringType"/>
+          <xs:element name="socket-path" type="bay:nonBlankStringType"/>
+          <xs:element name="gossip-ttl-seconds" type="xs:positiveInteger"/>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <xs:complexType name="agentRuntimeType">
+    <xs:complexContent>
+      <xs:extension base="bay:componentType">
+        <xs:sequence>
+          <xs:element name="mcp-socket-port" type="xs:positiveInteger"/>
+          <xs:element name="supported-sandboxes" type="bay:nonBlankStringType"/>
+          <xs:element name="graph-driver-required" type="bay:nonBlankStringType"/>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <xs:complexType name="portalType">
+    <xs:complexContent>
+      <xs:extension base="bay:componentType">
+        <xs:sequence>
+          <xs:element name="framework" type="bay:nonBlankStringType"/>
+          <xs:element name="direct-sql-permitted" type="xs:boolean"/>
+          <xs:element name="grpc-client-mode" type="bay:nonBlankStringType"/>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <xs:complexType name="cockpitType">
+    <xs:complexContent>
+      <xs:extension base="bay:componentType">
+        <xs:sequence>
+          <xs:element name="framework" type="bay:nonBlankStringType"/>
+          <xs:element name="authoritative" type="xs:boolean"/>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <xs:complexType name="simInfraType">
+    <xs:complexContent>
+      <xs:extension base="bay:componentType">
+        <xs:sequence>
+          <xs:element name="orchestrator" type="bay:nonBlankStringType"/>
+          <xs:element name="supported-clouds" type="bay:nonBlankStringType"/>
+          <xs:element name="contract-spec" type="bay:nonBlankStringType"/>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <xs:complexType name="serviceContractType">
+    <xs:complexContent>
+      <xs:extension base="bay:componentType">
+        <xs:sequence>
+          <xs:element name="protocol-pack" type="bay:nonBlankStringType"/>
+          <xs:element name="signature-algorithm" type="bay:nonBlankStringType"/>
+          <xs:element name="lifecycle-stages" type="bay:nonBlankStringType"/>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+</xs:schema>

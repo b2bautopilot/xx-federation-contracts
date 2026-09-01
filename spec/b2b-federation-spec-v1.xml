@@ -1,0 +1,185 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bay:system-specification
+  xmlns:bay="urn:baylife:system-specification:4.0"
+  xmlns:b2b="urn:b2b:architecture:1.0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="urn:baylife:system-specification:4.0 ../schemas/system-specification-v4.xsd urn:b2b:architecture:1.0 ../schemas/b2b-architecture-v1.xsd">
+
+  <bay:metadata system-id="b2b.federation-platform" version="1.0.0" status="accepted" generated-at="2026-09-01T14:00:00-04:00">
+    <bay:title>B2B Autopilot / Builders Net Sovereign Federation Platform</bay:title>
+    <bay:summary>Authoritative system architecture specification governing the 9 sovereign repositories, SPIFFE/mTLS airlocks, WireGuard userspace transport, payload-blind relay forwarders, sandboxed MCP agent runtimes, and Order-to-Cash service contracts.</bay:summary>
+    <bay:authority>This XML document is the primary architecture authority for all b2bautopilot/xx-* repositories. All runtime changes, schema changes, and contract evolutions must be recorded and sealed in this document.</bay:authority>
+  </bay:metadata>
+
+  <bay:collaboration>
+    <bay:actor id="actor.silji" display-name="Silji Abraham" kind="person"/>
+    <bay:actor id="actor.agent-antigravity" display-name="Antigravity Architect Agent" kind="agent"/>
+    <bay:actor id="actor.agent-claude" display-name="Claude Systems Agent" kind="agent"/>
+    <bay:actor id="actor.agent-codex" display-name="Codex Runtime Agent" kind="agent"/>
+    <bay:actor id="actor.agent-grok" display-name="Grok Verification Agent" kind="agent"/>
+    <bay:policy optimistic-concurrency="true" require-change-set="true" require-review-for-accepted="true" conflict-strategy="reject-stale-base"/>
+  </bay:collaboration>
+
+  <bay:architecture-profile>
+    <bay:component-type element="b2b:sovereign-control-plane" label="Sovereign Control Plane" plural-label="Sovereign Control Planes" category="control" icon="server" color="#2b5c8f" module-scope="required" creatable="true" deletable="false">
+      <bay:description>Central sovereign control plane holding sole ownership of PostgreSQL storage, audit logging, and coordination.</bay:description>
+    </bay:component-type>
+    <bay:component-type element="b2b:enterprise-airlock-gateway" label="Enterprise Airlock Gateway" plural-label="Enterprise Airlock Gateways" category="edge" icon="shield" color="#b55a30" module-scope="required" creatable="true" deletable="false">
+      <bay:description>Outbound-only enterprise federation edge airlock with zero inbound public open ports and SPIFFE mTLS pinning.</bay:description>
+    </bay:component-type>
+    <bay:component-type element="b2b:payload-blind-relay" label="Payload-Blind Relay Cell" plural-label="Payload-Blind Relay Cells" category="transport" icon="share-2" color="#4a7c59" module-scope="required" creatable="true" deletable="false">
+      <bay:description>Multi-cloud libp2p circuit-relay-v2 forwarding cells with 12h/64GiB limits and zero plaintext inspection.</bay:description>
+    </bay:component-type>
+    <bay:component-type element="b2b:userspace-wireguard-mesh" label="Userspace WireGuard Mesh" plural-label="Userspace WireGuard Meshes" category="transport" icon="activity" color="#3d82a4" module-scope="required" creatable="true" deletable="false">
+      <bay:description>Userspace WireGuard mesh engine (x-mesh) with blind signed-gossip presence index.</bay:description>
+    </bay:component-type>
+    <bay:component-type element="b2b:sandboxed-agent-runtime" label="Sandboxed Agent Runtime" plural-label="Sandboxed Agent Runtimes" category="compute" icon="cpu" color="#8b4f85" module-scope="required" creatable="true" deletable="false">
+      <bay:description>Workstation container and microVM supervisor serving 16 coordination_* MCP tools.</bay:description>
+    </bay:component-type>
+    <bay:component-type element="b2b:admin-portal" label="Admin Portal" plural-label="Admin Portals" category="experience" icon="layout" color="#2f7a6e" module-scope="required" creatable="true" deletable="false">
+      <bay:description>Next.js 16 pure gRPC administrative portal with zero direct SQL access.</bay:description>
+    </bay:component-type>
+    <bay:component-type element="b2b:operator-cockpit" label="Operator Cockpit" plural-label="Operator Cockpits" category="experience" icon="smartphone" color="#6f42c1" module-scope="required" creatable="true" deletable="false">
+      <bay:description>Flutter multi-platform non-authoritative operator cockpit.</bay:description>
+    </bay:component-type>
+    <bay:component-type element="b2b:simulation-infrastructure" label="Simulation Infrastructure" plural-label="Simulation Infrastructures" category="infrastructure" icon="cloud" color="#c2612d" module-scope="required" creatable="true" deletable="false">
+      <bay:description>OpenTofu multi-cloud orchestration for standing relays and disposable simulation enterprises.</bay:description>
+    </bay:component-type>
+    <bay:component-type element="b2b:business-service-contract" label="Business Service Contract Pack" plural-label="Business Service Contract Packs" category="business" icon="file-text" color="#d9822b" module-scope="required" creatable="true" deletable="false">
+      <bay:description>Signed multi-enterprise contract packs including Order-to-Cash v1.</bay:description>
+    </bay:component-type>
+  </bay:architecture-profile>
+
+  <bay:modules>
+    <bay:module id="module.core-contracts" name="Core Contracts &amp; Identity" status="accepted" revision="1">
+      <bay:summary>Protobuf schemas, cryptographic keyrings, SPIFFE trust domains, and Order-to-Cash contract packs.</bay:summary>
+      <b2b:business-service-contract id="comp.order-to-cash-v1" name="Order-to-Cash v1 Contract Pack" status="accepted" revision="1">
+        <bay:summary>7-stage cryptographic business transaction pack (RFQ -> Quote -> PO -> Confirm -> Ship -> Invoice -> Payment).</bay:summary>
+        <b2b:protocol-pack>builders.federation.order_to_cash.v1</b2b:protocol-pack>
+        <b2b:signature-algorithm>Ed25519</b2b:signature-algorithm>
+        <b2b:lifecycle-stages>rfq,quote,purchase_order,order_confirmation,shipment_notice,invoice,payment_settlement</b2b:lifecycle-stages>
+      </b2b:business-service-contract>
+    </bay:module>
+
+    <bay:module id="module.network-fabric" name="Mesh &amp; Relay Network Fabric" status="accepted" revision="1">
+      <bay:summary>Userspace WireGuard tunnels and payload-blind multi-cloud forwarder cells.</bay:summary>
+      <b2b:userspace-wireguard-mesh id="comp.x-mesh" name="x-mesh WireGuard Substrate" status="accepted" revision="1">
+        <bay:summary>Standalone userspace WireGuard mesh daemon with UDS control socket.</bay:summary>
+        <b2b:userspace-engine>wireguard-go</b2b:userspace-engine>
+        <b2b:socket-path>/run/x-mesh/sock</b2b:socket-path>
+        <b2b:gossip-ttl-seconds>30</b2b:gossip-ttl-seconds>
+      </b2b:userspace-wireguard-mesh>
+
+      <b2b:payload-blind-relay id="comp.federation-relay" name="Payload-Blind Relay Cells" status="accepted" revision="1">
+        <bay:summary>GCP, AWS, and Azure standing relay cells with 12h/64GiB circuit budgets.</bay:summary>
+        <b2b:circuit-protocol>libp2p/circuit-relay-v2</b2b:circuit-protocol>
+        <b2b:max-connection-duration-hours>12</b2b:max-connection-duration-hours>
+        <b2b:max-connection-bandwidth-gib>64</b2b:max-connection-bandwidth-gib>
+        <b2b:payload-blind>true</b2b:payload-blind>
+      </b2b:payload-blind-relay>
+    </bay:module>
+
+    <bay:module id="module.edge-airlock" name="Enterprise Airlock Edge" status="accepted" revision="1">
+      <bay:summary>Outbound-only airlocks connecting private enterprise nodes to relay fabric.</bay:summary>
+      <b2b:enterprise-airlock-gateway id="comp.federation-gateway" name="Enterprise Gateway Airlock" status="accepted" revision="1">
+        <bay:summary>Outbound-only gateway edge with zero open inbound public listeners and SPIFFE cert pinning.</bay:summary>
+        <b2b:inbound-public-listeners>false</b2b:inbound-public-listeners>
+        <b2b:spiffe-trust-domain>builders-net</b2b:spiffe-trust-domain>
+        <b2b:outbound-only>true</b2b:outbound-only>
+      </b2b:enterprise-airlock-gateway>
+    </bay:module>
+
+    <bay:module id="module.compute-and-control" name="Control Plane &amp; Workstation Runtime" status="accepted" revision="1">
+      <bay:summary>Sovereign PostgreSQL control plane and containerized agent supervisor.</bay:summary>
+      <b2b:sovereign-control-plane id="comp.builders-control" name="Sovereign Control Plane" status="accepted" revision="1">
+        <bay:summary>Sole owner of Postgres storage with 57 migrations and fail-closed schema checks.</bay:summary>
+        <b2b:grpc-endpoint>127.0.0.1:9090</b2b:grpc-endpoint>
+        <b2b:http-endpoint>127.0.0.1:8080</b2b:http-endpoint>
+        <b2b:postgres-migrations-count>57</b2b:postgres-migrations-count>
+        <b2b:advisory-lock-hex>0x6232626d69677261</b2b:advisory-lock-hex>
+      </b2b:sovereign-control-plane>
+
+      <b2b:sandboxed-agent-runtime id="comp.builders-agent" name="Workstation Agent Runtime" status="accepted" revision="1">
+        <bay:summary>Containerized agent supervisor serving 16 coordination_* MCP tools on rootless podman overlay.</bay:summary>
+        <b2b:mcp-socket-port>9210</b2b:mcp-socket-port>
+        <b2b:supported-sandboxes>podman,gvisor,fargate,aci</b2b:supported-sandboxes>
+        <b2b:graph-driver-required>overlay</b2b:graph-driver-required>
+      </b2b:sandboxed-agent-runtime>
+    </bay:module>
+
+    <bay:module id="module.applications" name="Operator Applications" status="accepted" revision="1">
+      <bay:summary>Web admin portal and Flutter mobile/desktop cockpit.</bay:summary>
+      <b2b:admin-portal id="comp.builders-portal" name="Builders Admin Portal" status="accepted" revision="1">
+        <bay:summary>Next.js 16 pure gRPC admin portal with zero direct SQL.</bay:summary>
+        <b2b:framework>Next.js 16 / React 19</b2b:framework>
+        <b2b:direct-sql-permitted>false</b2b:direct-sql-permitted>
+        <b2b:grpc-client-mode>pure-grpc-9090</b2b:grpc-client-mode>
+      </b2b:admin-portal>
+
+      <b2b:operator-cockpit id="comp.builders-hub" name="Builders Hub Operator Cockpit" status="accepted" revision="1">
+        <bay:summary>Flutter multi-platform non-authoritative operator cockpit.</bay:summary>
+        <b2b:framework>Flutter 3.41.4</b2b:framework>
+        <b2b:authoritative>false</b2b:authoritative>
+      </b2b:operator-cockpit>
+    </bay:module>
+
+    <bay:module id="module.infrastructure" name="Simulation Infrastructure" status="accepted" revision="1">
+      <bay:summary>Multi-cloud OpenTofu automation adhering to CONTRACT.md.</bay:summary>
+      <b2b:simulation-infrastructure id="comp.sim-infra" name="Simulation Infrastructure" status="accepted" revision="1">
+        <bay:summary>OpenTofu GCP/AWS/Azure disposable orgs and standing relay cells.</bay:summary>
+        <b2b:orchestrator>OpenTofu</b2b:orchestrator>
+        <b2b:supported-clouds>gcp,aws,azure</b2b:supported-clouds>
+        <b2b:contract-spec>CONTRACT.md</b2b:contract-spec>
+      </b2b:simulation-infrastructure>
+    </bay:module>
+  </bay:modules>
+
+  <bay:relationships>
+    <bay:relationship id="rel.gateway-dials-relay" name="Gateway Outbound Dial" status="accepted" revision="1">
+      <bay:summary>Airlock gateways dial outbound to standing relay cells over circuit-relay-v2.</bay:summary>
+      <bay:source-ref ref="comp.federation-gateway"/>
+      <bay:target-ref ref="comp.federation-relay"/>
+    </bay:relationship>
+    <bay:relationship id="rel.gateway-connects-control" name="Gateway Local Control Dial" status="accepted" revision="1">
+      <bay:summary>Gateways call local control plane via narrow FederationService facade only.</bay:summary>
+      <bay:source-ref ref="comp.federation-gateway"/>
+      <bay:target-ref ref="comp.builders-control"/>
+    </bay:relationship>
+    <bay:relationship id="rel.agent-connects-control" name="Agent BiDi gRPC Stream" status="accepted" revision="1">
+      <bay:summary>Workstation agents connect to control plane over ConnectAgent / ConnectRuntime.</bay:summary>
+      <bay:source-ref ref="comp.builders-agent"/>
+      <bay:target-ref ref="comp.builders-control"/>
+    </bay:relationship>
+    <bay:relationship id="rel.portal-dials-control" name="Portal Pure gRPC Client" status="accepted" revision="1">
+      <bay:summary>Next.js Portal calls builders-control on gRPC :9090 with zero direct SQL.</bay:summary>
+      <bay:source-ref ref="comp.builders-portal"/>
+      <bay:target-ref ref="comp.builders-control"/>
+    </bay:relationship>
+    <bay:relationship id="rel.hub-dials-control" name="Hub Non-Authoritative RPC" status="accepted" revision="1">
+      <bay:summary>Flutter Hub reconciles snapshots against builders-control.</bay:summary>
+      <bay:source-ref ref="comp.builders-hub"/>
+      <bay:target-ref ref="comp.builders-control"/>
+    </bay:relationship>
+  </bay:relationships>
+
+  <bay:verification-proofs>
+    <bay:verification-proof id="proof.nbr-g3-outbound-only" name="NBR-G3 Outbound-Only Airlock" status="accepted" revision="1">
+      <bay:summary>Proof that gateways have zero open public listening ports and only dial outbound.</bay:summary>
+    </bay:verification-proof>
+    <bay:verification-proof id="proof.nbr-r7-relay-limits" name="NBR-R7 Relay Circuit Limits" status="accepted" revision="1">
+      <bay:summary>Proof that relay cells enforce 12h / 64GiB per-connection circuit limits.</bay:summary>
+    </bay:verification-proof>
+    <bay:verification-proof id="proof.database-rehearsals" name="Postgres Rehearsals R01-R08" status="accepted" revision="1">
+      <bay:summary>Proof that sovereign control planes pass all 8 database rehearsal checks across Cloud SQL, RDS, and Flexible Server.</bay:summary>
+    </bay:verification-proof>
+  </bay:verification-proofs>
+
+  <bay:sealed-revisions>
+    <bay:sealed-revision version="1.0.0" revision="1" sealed-at="2026-09-01T14:00:00-04:00">
+      <bay:semantic-hash>sha256:4a8b72c910e5f3192a83bd780f2491a27e9b015386f189c4501a4e528b7e9a01</bay:semantic-hash>
+      <bay:author-ref ref="actor.agent-antigravity"/>
+      <bay:change-summary>Establish foundational sovereign B2B federation XML architecture specification v1.0.0.</bay:change-summary>
+    </bay:sealed-revision>
+  </bay:sealed-revisions>
+
+</bay:system-specification>

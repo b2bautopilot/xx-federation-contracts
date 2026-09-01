@@ -1,0 +1,597 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema
+  xmlns:xs="http://www.w3.org/2001/XMLSchema"
+  xmlns:bay="urn:baylife:system-specification:4.0"
+  targetNamespace="urn:baylife:system-specification:4.0"
+  elementFormDefault="qualified"
+  attributeFormDefault="unqualified"
+  version="4.0.0">
+
+  <xs:annotation>
+    <xs:documentation>
+      Baylife System Specification 4.0 is the breaking, typed architecture
+      contract. Application profiles extend the abstract component and
+      relationship elements with concrete XSD substitution-group members.
+      The schema deliberately contains no generic detail tree or wildcard.
+    </xs:documentation>
+  </xs:annotation>
+
+  <xs:simpleType name="nonBlankStringType">
+    <xs:restriction base="xs:string">
+      <xs:minLength value="1"/>
+      <xs:pattern value=".*\S.*"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="revisionNumberType">
+    <xs:restriction base="xs:positiveInteger"/>
+  </xs:simpleType>
+
+  <xs:simpleType name="statusType">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="draft"/>
+      <xs:enumeration value="review"/>
+      <xs:enumeration value="accepted"/>
+      <xs:enumeration value="retired"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="criticalityType">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="low"/>
+      <xs:enumeration value="medium"/>
+      <xs:enumeration value="high"/>
+      <xs:enumeration value="critical"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="directionType">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="outgoing"/>
+      <xs:enumeration value="incoming"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="layoutType">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="layered"/>
+      <xs:enumeration value="module-columns"/>
+      <xs:enumeration value="flow"/>
+      <xs:enumeration value="radial"/>
+      <xs:enumeration value="force"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="moduleScopeType">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="required"/>
+      <xs:enumeration value="optional"/>
+      <xs:enumeration value="forbidden"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="visualizationRendererType">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="package-map"/>
+      <xs:enumeration value="operation-interaction"/>
+      <xs:enumeration value="entity-relationship"/>
+      <xs:enumeration value="state-contract"/>
+      <xs:enumeration value="route-contract"/>
+      <xs:enumeration value="integration-contract"/>
+      <xs:enumeration value="scenario-operation-reference"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="authoringControlType">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="text"/>
+      <xs:enumeration value="multiline"/>
+      <xs:enumeration value="number"/>
+      <xs:enumeration value="toggle"/>
+      <xs:enumeration value="choice"/>
+      <xs:enumeration value="reference"/>
+      <xs:enumeration value="reference-list"/>
+      <xs:enumeration value="object"/>
+      <xs:enumeration value="list"/>
+      <xs:enumeration value="json-schema"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="authoringSectionType">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="metadata"/>
+      <xs:enumeration value="collaboration"/>
+      <xs:enumeration value="architecture-profile"/>
+      <xs:enumeration value="components"/>
+      <xs:enumeration value="relationships"/>
+      <xs:enumeration value="views"/>
+      <xs:enumeration value="history"/>
+      <xs:enumeration value="artifacts"/>
+      <xs:enumeration value="verification"/>
+      <xs:enumeration value="delivery"/>
+      <xs:enumeration value="agent-prompts"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="artifactEncodingType">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="text"/>
+      <xs:enumeration value="base64"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="verificationStatusType">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="passed"/>
+      <xs:enumeration value="failed"/>
+      <xs:enumeration value="blocked"/>
+      <xs:enumeration value="not-run"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="jsonPrimitiveType">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="array"/>
+      <xs:enumeration value="boolean"/>
+      <xs:enumeration value="integer"/>
+      <xs:enumeration value="null"/>
+      <xs:enumeration value="number"/>
+      <xs:enumeration value="object"/>
+      <xs:enumeration value="string"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="jsonScalarKindType">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="boolean"/>
+      <xs:enumeration value="null"/>
+      <xs:enumeration value="number"/>
+      <xs:enumeration value="string"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:complexType name="jsonScalarValueType">
+    <xs:simpleContent>
+      <xs:extension base="xs:string">
+        <xs:attribute name="kind" type="bay:jsonScalarKindType" use="required"/>
+      </xs:extension>
+    </xs:simpleContent>
+  </xs:complexType>
+
+  <xs:complexType name="jsonTypeSetType">
+    <xs:sequence>
+      <xs:element name="type" type="bay:jsonPrimitiveType" minOccurs="1" maxOccurs="7"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="jsonNameListType">
+    <xs:sequence>
+      <xs:element name="name" type="bay:nonBlankStringType" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="jsonValueListType">
+    <xs:sequence>
+      <xs:element name="value" type="bay:jsonScalarValueType" minOccurs="1" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="jsonSchemaPropertyType">
+    <xs:sequence>
+      <xs:element name="schema" type="bay:jsonSchemaType"/>
+    </xs:sequence>
+    <xs:attribute name="name" type="bay:nonBlankStringType" use="required"/>
+  </xs:complexType>
+
+  <xs:complexType name="jsonSchemaPropertiesType">
+    <xs:sequence>
+      <xs:element name="property" type="bay:jsonSchemaPropertyType" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="jsonSchemaType">
+    <xs:sequence>
+      <xs:element name="schema-ref" type="bay:nonBlankStringType" minOccurs="0"/>
+      <xs:element name="types" type="bay:jsonTypeSetType" minOccurs="0"/>
+      <xs:element name="title" type="bay:nonBlankStringType" minOccurs="0"/>
+      <xs:element name="description" type="bay:nonBlankStringType" minOccurs="0"/>
+      <xs:element name="format" type="bay:nonBlankStringType" minOccurs="0"/>
+      <xs:element name="pattern" type="xs:string" minOccurs="0"/>
+      <xs:element name="constant" type="bay:jsonScalarValueType" minOccurs="0"/>
+      <xs:element name="default" type="bay:jsonScalarValueType" minOccurs="0"/>
+      <xs:element name="enum" type="bay:jsonValueListType" minOccurs="0"/>
+      <xs:element name="required" type="bay:jsonNameListType" minOccurs="0"/>
+      <xs:element name="properties" type="bay:jsonSchemaPropertiesType" minOccurs="0"/>
+      <xs:element name="items" type="bay:jsonSchemaType" minOccurs="0"/>
+      <xs:element name="one-of" type="bay:jsonSchemaType" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="not" type="bay:jsonSchemaType" minOccurs="0"/>
+      <xs:element name="additional-properties" type="xs:boolean" minOccurs="0"/>
+      <xs:element name="additional-properties-schema" type="bay:jsonSchemaType" minOccurs="0"/>
+      <xs:element name="minimum" type="xs:decimal" minOccurs="0"/>
+      <xs:element name="exclusive-minimum" type="xs:decimal" minOccurs="0"/>
+      <xs:element name="maximum" type="xs:decimal" minOccurs="0"/>
+      <xs:element name="min-length" type="xs:nonNegativeInteger" minOccurs="0"/>
+      <xs:element name="max-length" type="xs:nonNegativeInteger" minOccurs="0"/>
+      <xs:element name="min-items" type="xs:nonNegativeInteger" minOccurs="0"/>
+      <xs:element name="max-items" type="xs:nonNegativeInteger" minOccurs="0"/>
+      <xs:element name="unique-items" type="xs:boolean" minOccurs="0"/>
+      <xs:element name="min-properties" type="xs:nonNegativeInteger" minOccurs="0"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:element name="description" type="bay:nonBlankStringType"/>
+
+  <xs:complexType name="metadataType">
+    <xs:sequence>
+      <xs:element name="title" type="bay:nonBlankStringType"/>
+      <xs:element name="summary" type="bay:nonBlankStringType"/>
+      <xs:element name="authority" type="bay:nonBlankStringType"/>
+      <xs:element name="reference-source" type="bay:referenceSourceType" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:attribute name="system-id" type="xs:ID" use="required"/>
+    <xs:attribute name="version" type="bay:nonBlankStringType" use="required"/>
+    <xs:attribute name="status" type="bay:statusType" use="required"/>
+    <xs:attribute name="generated-at" type="xs:dateTime" use="required"/>
+  </xs:complexType>
+
+  <xs:complexType name="referenceSourceType">
+    <xs:attribute name="id" type="xs:ID" use="required"/>
+    <xs:attribute name="path" type="bay:nonBlankStringType" use="required"/>
+    <xs:attribute name="role" use="required">
+      <xs:simpleType>
+        <xs:restriction base="xs:string">
+          <xs:enumeration value="reference-only"/>
+          <xs:enumeration value="derived-evidence"/>
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:attribute>
+    <xs:attribute name="sha256" type="bay:nonBlankStringType" use="required"/>
+  </xs:complexType>
+
+  <xs:complexType name="collaborationType">
+    <xs:sequence>
+      <xs:element name="actor" type="bay:actorType" minOccurs="1" maxOccurs="unbounded"/>
+      <xs:element name="policy" type="bay:collaborationPolicyType"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="actorType">
+    <xs:attribute name="id" type="xs:ID" use="required"/>
+    <xs:attribute name="display-name" type="bay:nonBlankStringType" use="required"/>
+    <xs:attribute name="kind" use="required">
+      <xs:simpleType>
+        <xs:restriction base="xs:string">
+          <xs:enumeration value="person"/>
+          <xs:enumeration value="agent"/>
+          <xs:enumeration value="service"/>
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:attribute>
+  </xs:complexType>
+
+  <xs:complexType name="collaborationPolicyType">
+    <xs:attribute name="optimistic-concurrency" type="xs:boolean" use="required"/>
+    <xs:attribute name="require-change-set" type="xs:boolean" use="required"/>
+    <xs:attribute name="require-review-for-accepted" type="xs:boolean" use="required"/>
+    <xs:attribute name="conflict-strategy" use="required">
+      <xs:simpleType>
+        <xs:restriction base="xs:string">
+          <xs:enumeration value="reject-stale-base"/>
+          <xs:enumeration value="manual-merge"/>
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:attribute>
+  </xs:complexType>
+
+  <xs:complexType name="componentType" abstract="true">
+    <xs:sequence>
+      <xs:element ref="bay:description"/>
+    </xs:sequence>
+    <xs:attribute name="id" type="xs:ID" use="required"/>
+    <xs:attribute name="key" type="bay:nonBlankStringType" use="required"/>
+    <xs:attribute name="name" type="bay:nonBlankStringType" use="required"/>
+    <xs:attribute name="status" type="bay:statusType" use="required"/>
+    <xs:attribute name="revision" type="bay:revisionNumberType" use="required"/>
+    <xs:attribute name="module-ref" type="xs:IDREF"/>
+    <xs:attribute name="source-pointer" type="bay:nonBlankStringType" use="required"/>
+  </xs:complexType>
+
+  <xs:element name="component" type="bay:componentType" abstract="true"/>
+
+  <xs:complexType name="componentsType">
+    <xs:sequence>
+      <xs:element ref="bay:component" minOccurs="1" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="relationshipType" abstract="true">
+    <xs:sequence>
+      <xs:element ref="bay:description"/>
+      <xs:element name="evidence" type="bay:relationshipEvidenceType" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:attribute name="id" type="xs:ID" use="required"/>
+    <xs:attribute name="source-ref" type="xs:IDREF" use="required"/>
+    <xs:attribute name="target-ref" type="xs:IDREF" use="required"/>
+    <xs:attribute name="status" type="bay:statusType" use="required"/>
+    <xs:attribute name="revision" type="bay:revisionNumberType" use="required"/>
+    <xs:attribute name="source-pointer" type="bay:nonBlankStringType" use="required"/>
+  </xs:complexType>
+
+  <xs:complexType name="relationshipEvidenceType">
+    <xs:sequence>
+      <xs:element ref="bay:description"/>
+    </xs:sequence>
+    <xs:attribute name="key" type="bay:nonBlankStringType" use="required"/>
+    <xs:attribute name="kind" type="bay:nonBlankStringType" use="required"/>
+    <xs:attribute name="artifact-ref" type="xs:IDREF" use="required"/>
+  </xs:complexType>
+
+  <xs:element name="relationship" type="bay:relationshipType" abstract="true"/>
+
+  <xs:complexType name="relationshipsType">
+    <xs:sequence>
+      <xs:element ref="bay:relationship" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="architectureProfileType">
+    <xs:sequence>
+      <xs:element name="component-type" type="bay:componentTypeDeclarationType" minOccurs="1" maxOccurs="unbounded"/>
+      <xs:element name="relationship-type" type="bay:relationshipTypeDeclarationType" minOccurs="1" maxOccurs="unbounded"/>
+      <xs:element name="visualization-lens" type="bay:visualizationLensType" minOccurs="1" maxOccurs="unbounded"/>
+      <xs:element name="authoring-surface" type="bay:authoringSurfaceType" minOccurs="1" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="visualizationLensType">
+    <xs:sequence>
+      <xs:element name="include-component-type" type="bay:qNameReferenceType" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:attribute name="key" type="bay:nonBlankStringType" use="required"/>
+    <xs:attribute name="label" type="bay:nonBlankStringType" use="required"/>
+    <xs:attribute name="description" type="bay:nonBlankStringType" use="required"/>
+    <xs:attribute name="icon" type="bay:nonBlankStringType" use="required"/>
+    <xs:attribute name="renderer" type="bay:visualizationRendererType" use="required"/>
+    <xs:attribute name="order" type="xs:positiveInteger" use="required"/>
+  </xs:complexType>
+
+  <xs:complexType name="componentTypeDeclarationType">
+    <xs:sequence>
+      <xs:element ref="bay:description"/>
+      <xs:element name="agent-prompt-ref" type="bay:idReferenceType" minOccurs="1" maxOccurs="unbounded"/>
+      <xs:element name="reference-field" type="bay:referenceFieldType" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="field-guidance" type="bay:fieldGuidanceType" minOccurs="1" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:attribute name="element" type="xs:QName" use="required"/>
+    <xs:attribute name="label" type="bay:nonBlankStringType" use="required"/>
+    <xs:attribute name="plural-label" type="bay:nonBlankStringType" use="required"/>
+    <xs:attribute name="category" type="bay:nonBlankStringType" use="required"/>
+    <xs:attribute name="icon" type="bay:nonBlankStringType" use="required"/>
+    <xs:attribute name="color" type="bay:nonBlankStringType" use="required"/>
+    <xs:attribute name="module-scope" type="bay:moduleScopeType" use="required"/>
+    <xs:attribute name="creatable" type="xs:boolean" use="required"/>
+    <xs:attribute name="deletable" type="xs:boolean" use="required"/>
+  </xs:complexType>
+
+  <xs:complexType name="idReferenceType">
+    <xs:attribute name="ref" type="xs:IDREF" use="required"/>
+  </xs:complexType>
+
+  <xs:complexType name="fieldGuidanceType">
+    <xs:sequence>
+      <xs:element name="default-value" type="xs:string" minOccurs="0"/>
+      <xs:element name="allowed-value" type="bay:nonBlankStringType" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="target-type" type="bay:qNameReferenceType" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:attribute name="path" type="bay:nonBlankStringType" use="required"/>
+    <xs:attribute name="label" type="bay:nonBlankStringType" use="required"/>
+    <xs:attribute name="help" type="bay:nonBlankStringType" use="required"/>
+    <xs:attribute name="control" type="bay:authoringControlType" use="required"/>
+    <xs:attribute name="required" type="xs:boolean" use="required"/>
+    <xs:attribute name="minimum-items" type="xs:nonNegativeInteger"/>
+    <xs:attribute name="maximum-items" type="xs:positiveInteger"/>
+    <xs:attribute name="sensitive" type="xs:boolean" use="required"/>
+  </xs:complexType>
+
+  <xs:complexType name="referenceFieldType">
+    <xs:sequence>
+      <xs:element name="target-type" type="bay:qNameReferenceType" minOccurs="1" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:attribute name="path" type="bay:nonBlankStringType" use="required"/>
+    <xs:attribute name="cardinality" use="required">
+      <xs:simpleType>
+        <xs:restriction base="xs:string">
+          <xs:enumeration value="one"/>
+          <xs:enumeration value="optional"/>
+          <xs:enumeration value="many"/>
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:attribute>
+  </xs:complexType>
+
+  <xs:complexType name="relationshipTypeDeclarationType">
+    <xs:sequence>
+      <xs:element ref="bay:description"/>
+      <xs:element name="source-type" type="bay:qNameReferenceType" minOccurs="1" maxOccurs="unbounded"/>
+      <xs:element name="target-type" type="bay:qNameReferenceType" minOccurs="1" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:attribute name="element" type="xs:QName" use="required"/>
+    <xs:attribute name="label" type="bay:nonBlankStringType" use="required"/>
+    <xs:attribute name="direction" type="bay:directionType" use="required"/>
+    <xs:attribute name="minimum-per-source" type="xs:nonNegativeInteger" use="required"/>
+    <xs:attribute name="maximum-per-source" type="xs:positiveInteger"/>
+    <xs:attribute name="acyclic" type="xs:boolean" use="required"/>
+  </xs:complexType>
+
+  <xs:complexType name="authoringSurfaceType">
+    <xs:attribute name="section" type="bay:authoringSectionType" use="required"/>
+    <xs:attribute name="label" type="bay:nonBlankStringType" use="required"/>
+    <xs:attribute name="help" type="bay:nonBlankStringType" use="required"/>
+    <xs:attribute name="editable" type="xs:boolean" use="required"/>
+    <xs:attribute name="review-required" type="xs:boolean" use="required"/>
+  </xs:complexType>
+
+  <xs:complexType name="qNameReferenceType">
+    <xs:attribute name="ref" type="xs:QName" use="required"/>
+  </xs:complexType>
+
+  <xs:complexType name="viewsType">
+    <xs:sequence>
+      <xs:element name="view" type="bay:viewType" minOccurs="1" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="viewType">
+    <xs:sequence>
+      <xs:element name="include-component-type" type="bay:qNameReferenceType" minOccurs="1" maxOccurs="unbounded"/>
+      <xs:element name="include-relationship-type" type="bay:qNameReferenceType" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:attribute name="id" type="xs:ID" use="required"/>
+    <xs:attribute name="name" type="bay:nonBlankStringType" use="required"/>
+    <xs:attribute name="description" type="bay:nonBlankStringType" use="required"/>
+    <xs:attribute name="layout" type="bay:layoutType" use="required"/>
+    <xs:attribute name="scope-ref" type="xs:IDREF"/>
+  </xs:complexType>
+
+  <xs:complexType name="historyType">
+    <xs:sequence>
+      <xs:element name="change-set" type="bay:changeSetType" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="revision" type="bay:revisionType" minOccurs="1" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="changeSetType">
+    <xs:sequence>
+      <xs:element name="summary" type="bay:nonBlankStringType"/>
+      <xs:element name="operation" type="bay:changeOperationType" minOccurs="1" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:attribute name="id" type="xs:ID" use="required"/>
+    <xs:attribute name="status" type="bay:statusType" use="required"/>
+    <xs:attribute name="base-revision" type="xs:nonNegativeInteger" use="required"/>
+    <xs:attribute name="result-revision" type="bay:revisionNumberType" use="required"/>
+    <xs:attribute name="actor-ref" type="xs:IDREF" use="required"/>
+    <xs:attribute name="created-at" type="xs:dateTime" use="required"/>
+    <xs:attribute name="accepted-at" type="xs:dateTime" use="required"/>
+  </xs:complexType>
+
+  <xs:complexType name="changeOperationType">
+    <xs:sequence>
+      <xs:element name="change" type="bay:changeType" minOccurs="1" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:attribute name="sequence" type="xs:positiveInteger" use="required"/>
+    <xs:attribute name="command" type="bay:nonBlankStringType" use="required"/>
+    <xs:attribute name="target-ref" type="bay:nonBlankStringType" use="required"/>
+    <xs:attribute name="expected-revision" type="xs:nonNegativeInteger" use="required"/>
+  </xs:complexType>
+
+  <xs:complexType name="changeType">
+    <xs:attribute name="path" type="bay:nonBlankStringType" use="required"/>
+    <xs:attribute name="old-value" type="xs:string"/>
+    <xs:attribute name="new-value" type="xs:string"/>
+    <xs:attribute name="value-type" type="bay:nonBlankStringType" use="required"/>
+  </xs:complexType>
+
+  <xs:complexType name="revisionType">
+    <xs:sequence>
+      <xs:element name="summary" type="bay:nonBlankStringType"/>
+    </xs:sequence>
+    <xs:attribute name="number" type="bay:revisionNumberType" use="required"/>
+    <xs:attribute name="actor-ref" type="xs:IDREF" use="required"/>
+    <xs:attribute name="created-at" type="xs:dateTime" use="required"/>
+    <xs:attribute name="status" type="bay:statusType" use="required"/>
+    <xs:attribute name="semantic-hash" type="bay:nonBlankStringType" use="required"/>
+    <xs:attribute name="change-set-ref" type="xs:IDREF"/>
+  </xs:complexType>
+
+  <xs:complexType name="agentPromptsType">
+    <xs:sequence>
+      <xs:element name="agent-prompt" type="bay:agentPromptType" minOccurs="1" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="agentPromptType">
+    <xs:sequence>
+      <xs:element name="purpose" type="bay:nonBlankStringType"/>
+      <xs:element name="template" type="bay:nonBlankStringType"/>
+      <xs:element name="required-input" type="bay:nonBlankStringType" minOccurs="1" maxOccurs="unbounded"/>
+      <xs:element name="required-output" type="bay:nonBlankStringType" minOccurs="1" maxOccurs="unbounded"/>
+      <xs:element name="verification-gate-ref" type="bay:idReferenceType" minOccurs="1" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:attribute name="id" type="xs:ID" use="required"/>
+    <xs:attribute name="key" type="bay:nonBlankStringType" use="required"/>
+    <xs:attribute name="version" type="bay:nonBlankStringType" use="required"/>
+    <xs:attribute name="status" type="bay:statusType" use="required"/>
+    <xs:attribute name="supersedes-ref" type="xs:IDREF"/>
+    <xs:attribute name="content-hash" type="bay:nonBlankStringType" use="required"/>
+  </xs:complexType>
+
+  <xs:complexType name="artifactsType">
+    <xs:sequence>
+      <xs:element name="artifact" type="bay:artifactType" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="artifactType">
+    <xs:simpleContent>
+      <xs:extension base="xs:string">
+        <xs:attribute name="id" type="xs:ID" use="required"/>
+        <xs:attribute name="path" type="bay:nonBlankStringType" use="required"/>
+        <xs:attribute name="media-type" type="bay:nonBlankStringType" use="required"/>
+        <xs:attribute name="encoding" type="bay:artifactEncodingType" use="required"/>
+        <xs:attribute name="sha256" type="bay:nonBlankStringType" use="required"/>
+        <xs:attribute name="role" type="bay:nonBlankStringType" use="required"/>
+      </xs:extension>
+    </xs:simpleContent>
+  </xs:complexType>
+
+  <xs:complexType name="verificationType">
+    <xs:sequence>
+      <xs:element name="gate" type="bay:verificationGateType" minOccurs="1" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="verificationGateType">
+    <xs:sequence>
+      <xs:element name="evidence" type="bay:evidenceType" minOccurs="1" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:attribute name="id" type="xs:ID" use="required"/>
+    <xs:attribute name="name" type="bay:nonBlankStringType" use="required"/>
+    <xs:attribute name="status" type="bay:verificationStatusType" use="required"/>
+    <xs:attribute name="criticality" type="bay:criticalityType" use="required"/>
+  </xs:complexType>
+
+  <xs:complexType name="evidenceType">
+    <xs:attribute name="artifact-ref" type="xs:IDREF" use="required"/>
+    <xs:attribute name="description" type="bay:nonBlankStringType" use="required"/>
+  </xs:complexType>
+
+  <xs:complexType name="deliveryType">
+    <xs:sequence>
+      <xs:element name="source-of-truth" type="bay:nonBlankStringType"/>
+      <xs:element name="generated-projection" type="bay:projectionType" minOccurs="1" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="projectionType">
+    <xs:attribute name="path" type="bay:nonBlankStringType" use="required"/>
+    <xs:attribute name="format" type="bay:nonBlankStringType" use="required"/>
+  </xs:complexType>
+
+  <xs:element name="system-specification">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="metadata" type="bay:metadataType"/>
+        <xs:element name="collaboration" type="bay:collaborationType"/>
+        <xs:element name="architecture-profile" type="bay:architectureProfileType"/>
+        <xs:element name="components" type="bay:componentsType"/>
+        <xs:element name="relationships" type="bay:relationshipsType"/>
+        <xs:element name="views" type="bay:viewsType"/>
+        <xs:element name="history" type="bay:historyType"/>
+        <xs:element name="artifacts" type="bay:artifactsType"/>
+        <xs:element name="verification" type="bay:verificationType"/>
+        <xs:element name="delivery" type="bay:deliveryType"/>
+        <xs:element name="agent-prompts" type="bay:agentPromptsType"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>

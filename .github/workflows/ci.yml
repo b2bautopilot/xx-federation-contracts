@@ -2,26 +2,36 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [ main ]
   pull_request:
-    branches: [main]
+    branches: [ main ]
 
 jobs:
-  test:
-    name: Test & Lint
+  validate-spec:
+    name: Validate Baylife XML Spec
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Validate XML Specification
+        run: python3 scripts/validate-spec.py
 
-      - name: Setup Go
+  test:
+    name: Build & Test Contracts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.26.x"
+          go-version: '1.26.x'
           cache: true
-
+      - name: Go Build
+        run: go build -v ./...
       - name: Go Vet
         run: go vet ./...
-
-      - name: Go Test & Race Detector
+      - name: Go Test (-race)
         run: go test -v -race -count=1 ./...
