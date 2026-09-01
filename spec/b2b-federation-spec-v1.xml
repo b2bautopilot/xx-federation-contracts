@@ -5,7 +5,7 @@
   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
   xsi:schemaLocation="urn:baylife:system-specification:4.0 ../schemas/system-specification-v4.xsd urn:b2b:architecture:1.0 ../schemas/b2b-architecture-v1.xsd">
 
-  <bay:metadata system-id="b2b.federation-platform" version="1.0.0" status="accepted" generated-at="2026-09-01T14:00:00-04:00">
+  <bay:metadata system-id="b2b.federation-platform" version="1.1.0" status="accepted" generated-at="2026-09-01T14:00:00-04:00">
     <bay:title>B2B Autopilot / Builders Net Sovereign Federation Platform</bay:title>
     <bay:summary>Authoritative system architecture specification governing the 9 sovereign repositories, SPIFFE/mTLS airlocks, WireGuard userspace transport, payload-blind relay forwarders, sandboxed MCP agent runtimes, and Order-to-Cash service contracts.</bay:summary>
     <bay:authority>This XML document is the primary architecture authority for all b2bautopilot/xx-* repositories. All runtime changes, schema changes, and contract evolutions must be recorded and sealed in this document.</bay:authority>
@@ -135,21 +135,21 @@
   </bay:architecture-profile>
 
   <bay:components>
-    <b2b:business-service-contract id="comp.order-to-cash-v1" key="order-to-cash-v1" name="Order-to-Cash v1 Contract Pack" status="accepted" revision="1" source-pointer="/contracts/order-to-cash.v1">
+    <b2b:business-service-contract id="comp.order-to-cash-v1" key="order-to-cash-v1" name="Order-to-Cash v1 Contract Pack" status="accepted" revision="2" source-pointer="github.com/b2bautopilot/xx-federation-contracts">
       <bay:description>7-stage cryptographic business transaction pack (RFQ -> Quote -> PO -> Confirm -> Ship -> Invoice -> Payment).</bay:description>
       <b2b:protocol-pack>builders.federation.order_to_cash.v1</b2b:protocol-pack>
       <b2b:signature-algorithm>Ed25519</b2b:signature-algorithm>
       <b2b:lifecycle-stages>rfq,quote,purchase_order,order_confirmation,shipment_notice,invoice,payment_settlement</b2b:lifecycle-stages>
     </b2b:business-service-contract>
 
-    <b2b:userspace-wireguard-mesh id="comp.x-mesh" key="x-mesh" name="x-mesh WireGuard Substrate" status="accepted" revision="1" source-pointer="/services/mesh-net">
+    <b2b:userspace-wireguard-mesh id="comp.x-mesh" key="x-mesh" name="x-mesh WireGuard Substrate" status="accepted" revision="2" source-pointer="github.com/b2bautopilot/xx-mesh-net">
       <bay:description>Standalone userspace WireGuard mesh daemon with UDS control socket.</bay:description>
       <b2b:userspace-engine>wireguard-go</b2b:userspace-engine>
       <b2b:socket-path>/run/x-mesh/sock</b2b:socket-path>
       <b2b:gossip-ttl-seconds>30</b2b:gossip-ttl-seconds>
     </b2b:userspace-wireguard-mesh>
 
-    <b2b:payload-blind-relay id="comp.federation-relay" key="federation-relay" name="Payload-Blind Relay Cells" status="accepted" revision="1" source-pointer="/services/federation-relay">
+    <b2b:payload-blind-relay id="comp.federation-relay" key="federation-relay" name="Payload-Blind Relay Cells" status="accepted" revision="2" source-pointer="github.com/b2bautopilot/xx-federation-relay">
       <bay:description>GCP, AWS, and Azure standing relay cells with 12h/64GiB circuit budgets.</bay:description>
       <b2b:circuit-protocol>libp2p/circuit-relay-v2</b2b:circuit-protocol>
       <b2b:max-connection-duration-hours>12</b2b:max-connection-duration-hours>
@@ -157,14 +157,14 @@
       <b2b:payload-blind>true</b2b:payload-blind>
     </b2b:payload-blind-relay>
 
-    <b2b:enterprise-airlock-gateway id="comp.federation-gateway" key="federation-gateway" name="Enterprise Gateway Airlock" status="accepted" revision="1" source-pointer="/services/federation-gateway">
+    <b2b:enterprise-airlock-gateway id="comp.federation-gateway" key="federation-gateway" name="Enterprise Gateway Airlock" status="accepted" revision="2" source-pointer="github.com/b2bautopilot/xx-federation-gateway">
       <bay:description>Outbound-only gateway edge with zero open inbound public listeners and SPIFFE cert pinning.</bay:description>
       <b2b:inbound-public-listeners>false</b2b:inbound-public-listeners>
       <b2b:spiffe-trust-domain>builders-net</b2b:spiffe-trust-domain>
       <b2b:outbound-only>true</b2b:outbound-only>
     </b2b:enterprise-airlock-gateway>
 
-    <b2b:sovereign-control-plane id="comp.builders-control" key="builders-control" name="Sovereign Control Plane" status="accepted" revision="1" source-pointer="/services/builders-net">
+    <b2b:sovereign-control-plane id="comp.builders-control" key="builders-control" name="Sovereign Control Plane" status="accepted" revision="2" source-pointer="github.com/b2bautopilot/xx-builders-net">
       <bay:description>Sole owner of Postgres storage with 57 migrations and fail-closed schema checks.</bay:description>
       <b2b:grpc-endpoint>127.0.0.1:9090</b2b:grpc-endpoint>
       <b2b:http-endpoint>127.0.0.1:8080</b2b:http-endpoint>
@@ -172,27 +172,28 @@
       <b2b:advisory-lock-hex>0x6232626d69677261</b2b:advisory-lock-hex>
     </b2b:sovereign-control-plane>
 
-    <b2b:sandboxed-agent-runtime id="comp.builders-agent" key="builders-agent" name="Workstation Agent Runtime" status="accepted" revision="1" source-pointer="/services/builders-agent">
+    <b2b:sandboxed-agent-runtime id="comp.builders-agent" key="builders-agent" name="Workstation Agent Runtime" status="accepted" revision="2" source-pointer="github.com/b2bautopilot/xx-builders-agent">
       <bay:description>Containerized agent supervisor serving 16 coordination_* MCP tools on rootless podman overlay.</bay:description>
       <b2b:mcp-socket-port>9210</b2b:mcp-socket-port>
-      <b2b:supported-sandboxes>podman,gvisor,fargate,aci</b2b:supported-sandboxes>
+      <b2b:supported-sandboxes>podman,apple_container,wsl2_containerd,gvisor</b2b:supported-sandboxes>
       <b2b:graph-driver-required>overlay</b2b:graph-driver-required>
+      <b2b:metadata-endpoints-denied>true</b2b:metadata-endpoints-denied>
     </b2b:sandboxed-agent-runtime>
 
-    <b2b:admin-portal id="comp.builders-portal" key="builders-portal" name="Builders Admin Portal" status="accepted" revision="1" source-pointer="/apps/builders-portal">
+    <b2b:admin-portal id="comp.builders-portal" key="builders-portal" name="Builders Admin Portal" status="accepted" revision="2" source-pointer="github.com/b2bautopilot/xx-builders-portal">
       <bay:description>Next.js 16 pure gRPC admin portal with zero direct SQL.</bay:description>
       <b2b:framework>Next.js 16 / React 19</b2b:framework>
       <b2b:direct-sql-permitted>false</b2b:direct-sql-permitted>
       <b2b:grpc-client-mode>pure-grpc-9090</b2b:grpc-client-mode>
     </b2b:admin-portal>
 
-    <b2b:operator-cockpit id="comp.builders-hub" key="builders-hub" name="Builders Hub Operator Cockpit" status="accepted" revision="1" source-pointer="/apps/builders-hub">
+    <b2b:operator-cockpit id="comp.builders-hub" key="builders-hub" name="Builders Hub Operator Cockpit" status="accepted" revision="2" source-pointer="github.com/b2bautopilot/xx-builders-hub">
       <bay:description>Flutter multi-platform non-authoritative operator cockpit.</bay:description>
       <b2b:framework>Flutter 3.41.4</b2b:framework>
       <b2b:authoritative>false</b2b:authoritative>
     </b2b:operator-cockpit>
 
-    <b2b:simulation-infrastructure id="comp.sim-infra" key="sim-infra" name="Simulation Infrastructure" status="accepted" revision="1" source-pointer="/infra/sim-infra">
+    <b2b:simulation-infrastructure id="comp.sim-infra" key="sim-infra" name="Simulation Infrastructure" status="accepted" revision="2" source-pointer="github.com/b2bautopilot/xx-sim-infra">
       <bay:description>OpenTofu GCP/AWS/Azure disposable orgs and standing relay cells.</bay:description>
       <b2b:orchestrator>OpenTofu</b2b:orchestrator>
       <b2b:supported-clouds>gcp,aws,azure</b2b:supported-clouds>
@@ -243,15 +244,53 @@
         <bay:change path="status" new-value="accepted" value-type="string"/>
       </bay:operation>
     </bay:change-set>
+    <bay:change-set id="change-set.b2b-002" status="accepted" base-revision="1" result-revision="2" actor-ref="actor.agent-claude" created-at="2026-09-01T21:27:14Z" accepted-at="2026-09-01T21:27:14Z">
+      <bay:summary>Revision 2: repoint all 9 component source-pointers from monorepo paths to their sovereign GitHub repositories under ADR 0009/0010 (resolves issue #2); align comp.builders-agent supported-sandboxes with the shipped xx-builders-agent runtime (podman, apple_container, wsl2_containerd, gvisor; fargate and aci removed as unimplemented) and type the link-local cloud metadata-endpoint deny invariant as b2b:metadata-endpoints-denied in b2b-architecture-v1.xsd 1.1.0 (resolves issue #1). Bumps metadata version to 1.1.0 and every modified component to revision 2.</bay:summary>
+      <bay:operation sequence="1" command="update-component" target-ref="comp.order-to-cash-v1" expected-revision="1">
+        <bay:change path="source-pointer" old-value="/contracts/order-to-cash.v1" new-value="github.com/b2bautopilot/xx-federation-contracts" value-type="string"/>
+      </bay:operation>
+      <bay:operation sequence="2" command="update-component" target-ref="comp.x-mesh" expected-revision="1">
+        <bay:change path="source-pointer" old-value="/services/mesh-net" new-value="github.com/b2bautopilot/xx-mesh-net" value-type="string"/>
+      </bay:operation>
+      <bay:operation sequence="3" command="update-component" target-ref="comp.federation-relay" expected-revision="1">
+        <bay:change path="source-pointer" old-value="/services/federation-relay" new-value="github.com/b2bautopilot/xx-federation-relay" value-type="string"/>
+      </bay:operation>
+      <bay:operation sequence="4" command="update-component" target-ref="comp.federation-gateway" expected-revision="1">
+        <bay:change path="source-pointer" old-value="/services/federation-gateway" new-value="github.com/b2bautopilot/xx-federation-gateway" value-type="string"/>
+      </bay:operation>
+      <bay:operation sequence="5" command="update-component" target-ref="comp.builders-control" expected-revision="1">
+        <bay:change path="source-pointer" old-value="/services/builders-net" new-value="github.com/b2bautopilot/xx-builders-net" value-type="string"/>
+      </bay:operation>
+      <bay:operation sequence="6" command="update-component" target-ref="comp.builders-agent" expected-revision="1">
+        <bay:change path="source-pointer" old-value="/services/builders-agent" new-value="github.com/b2bautopilot/xx-builders-agent" value-type="string"/>
+        <bay:change path="supported-sandboxes" old-value="podman,gvisor,fargate,aci" new-value="podman,apple_container,wsl2_containerd,gvisor" value-type="string"/>
+        <bay:change path="metadata-endpoints-denied" new-value="true" value-type="boolean"/>
+      </bay:operation>
+      <bay:operation sequence="7" command="update-component" target-ref="comp.builders-portal" expected-revision="1">
+        <bay:change path="source-pointer" old-value="/apps/builders-portal" new-value="github.com/b2bautopilot/xx-builders-portal" value-type="string"/>
+      </bay:operation>
+      <bay:operation sequence="8" command="update-component" target-ref="comp.builders-hub" expected-revision="1">
+        <bay:change path="source-pointer" old-value="/apps/builders-hub" new-value="github.com/b2bautopilot/xx-builders-hub" value-type="string"/>
+      </bay:operation>
+      <bay:operation sequence="9" command="update-component" target-ref="comp.sim-infra" expected-revision="1">
+        <bay:change path="source-pointer" old-value="/infra/sim-infra" new-value="github.com/b2bautopilot/xx-sim-infra" value-type="string"/>
+      </bay:operation>
+      <bay:operation sequence="10" command="update-artifact" target-ref="artifact.schema.b2b-architecture" expected-revision="1">
+        <bay:change path="sha256" old-value="7a76e02eaceffef8058faa8ca01601f2e858b8310796e7751e9ec1f7bb006949" new-value="537a24dcb7812d92b699720ed50eb32a208f44476154e36d1b9550c77a698984" value-type="string"/>
+      </bay:operation>
+    </bay:change-set>
     <bay:revision number="1" actor-ref="actor.agent-antigravity" created-at="2026-09-01T14:00:00Z" status="accepted" semantic-hash="sha256:4a8b72c910e5f3192a83bd780f2491a27e9b015386f189c4501a4e528b7e9a01" change-set-ref="change-set.b2b-001">
       <bay:summary>Sealed baseline architecture across all 9 sovereign repositories.</bay:summary>
+    </bay:revision>
+    <bay:revision number="2" actor-ref="actor.agent-claude" created-at="2026-09-01T21:27:14Z" status="accepted" semantic-hash="sha256:32370823aace475254951ccc05e31ca0ef66e024e6e9823977cfd79fb0e50ae4" change-set-ref="change-set.b2b-002">
+      <bay:summary>Sealed revision 2: sovereign repository source-pointers for all 9 components and agent runtime alignment (sandbox set and typed metadata-endpoint deny). The semantic-hash is the SHA-256 of the xmllint --c14n canonical form of this document with the bay:history element removed (its tail whitespace retained), so the hash covers every sealed section without self-reference.</bay:summary>
     </bay:revision>
   </bay:history>
 
   <bay:artifacts>
     <bay:artifact id="artifact.contracts.order-to-cash.proto" path="api/proto/builders/v1/order_to_cash.proto" media-type="text/x-protobuf" encoding="text" sha256="e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855" role="contract">Order to Cash v1 Protocol Buffer IDL</bay:artifact>
     <bay:artifact id="artifact.schema.system-specification" path="schemas/system-specification-v4.xsd" media-type="application/xml" encoding="text" sha256="32363a86433070d5143202b226070afa4788af2fb353a9273b963fe28f4a930e" role="schema">Baylife Meta-Schema v4</bay:artifact>
-    <bay:artifact id="artifact.schema.b2b-architecture" path="schemas/b2b-architecture-v1.xsd" media-type="application/xml" encoding="text" sha256="7a76e02eaceffef8058faa8ca01601f2e858b8310796e7751e9ec1f7bb006949" role="schema">B2B Architecture Domain Profile XSD</bay:artifact>
+    <bay:artifact id="artifact.schema.b2b-architecture" path="schemas/b2b-architecture-v1.xsd" media-type="application/xml" encoding="text" sha256="537a24dcb7812d92b699720ed50eb32a208f44476154e36d1b9550c77a698984" role="schema">B2B Architecture Domain Profile XSD</bay:artifact>
   </bay:artifacts>
 
   <bay:verification>

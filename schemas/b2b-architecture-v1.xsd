@@ -6,7 +6,7 @@
   targetNamespace="urn:b2b:architecture:1.0"
   elementFormDefault="qualified"
   attributeFormDefault="unqualified"
-  version="1.0.0">
+  version="1.1.0">
 
   <xs:import namespace="urn:baylife:system-specification:4.0" schemaLocation="system-specification-v4.xsd"/>
 
@@ -84,6 +84,8 @@
           <xs:element name="mcp-socket-port" type="xs:positiveInteger"/>
           <xs:element name="supported-sandboxes" type="bay:nonBlankStringType"/>
           <xs:element name="graph-driver-required" type="bay:nonBlankStringType"/>
+          <!-- Invariant: link-local cloud metadata endpoints (169.254.169.254 / 169.254.170.2) must be denied to untrusted code. -->
+          <xs:element name="metadata-endpoints-denied" type="xs:boolean"/>
         </xs:sequence>
       </xs:extension>
     </xs:complexContent>
