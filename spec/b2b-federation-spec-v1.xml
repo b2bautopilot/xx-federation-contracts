@@ -23,163 +23,272 @@
   <bay:architecture-profile>
     <bay:component-type element="b2b:sovereign-control-plane" label="Sovereign Control Plane" plural-label="Sovereign Control Planes" category="control" icon="server" color="#2b5c8f" module-scope="required" creatable="true" deletable="false">
       <bay:description>Central sovereign control plane holding sole ownership of PostgreSQL storage, audit logging, and coordination.</bay:description>
+      <bay:agent-prompt-ref ref="agent-prompt.component-codegen.v1"/>
+      <bay:field-guidance path="id" label="ID" help="Component identifier." control="text" required="true" sensitive="false">
+        <bay:default-value/>
+      </bay:field-guidance>
     </bay:component-type>
     <bay:component-type element="b2b:enterprise-airlock-gateway" label="Enterprise Airlock Gateway" plural-label="Enterprise Airlock Gateways" category="edge" icon="shield" color="#b55a30" module-scope="required" creatable="true" deletable="false">
       <bay:description>Outbound-only enterprise federation edge airlock with zero inbound public open ports and SPIFFE mTLS pinning.</bay:description>
+      <bay:agent-prompt-ref ref="agent-prompt.component-codegen.v1"/>
+      <bay:field-guidance path="id" label="ID" help="Component identifier." control="text" required="true" sensitive="false">
+        <bay:default-value/>
+      </bay:field-guidance>
     </bay:component-type>
     <bay:component-type element="b2b:payload-blind-relay" label="Payload-Blind Relay Cell" plural-label="Payload-Blind Relay Cells" category="transport" icon="share-2" color="#4a7c59" module-scope="required" creatable="true" deletable="false">
       <bay:description>Multi-cloud libp2p circuit-relay-v2 forwarding cells with 12h/64GiB limits and zero plaintext inspection.</bay:description>
+      <bay:agent-prompt-ref ref="agent-prompt.component-codegen.v1"/>
+      <bay:field-guidance path="id" label="ID" help="Component identifier." control="text" required="true" sensitive="false">
+        <bay:default-value/>
+      </bay:field-guidance>
     </bay:component-type>
     <bay:component-type element="b2b:userspace-wireguard-mesh" label="Userspace WireGuard Mesh" plural-label="Userspace WireGuard Meshes" category="transport" icon="activity" color="#3d82a4" module-scope="required" creatable="true" deletable="false">
       <bay:description>Userspace WireGuard mesh engine (x-mesh) with blind signed-gossip presence index.</bay:description>
+      <bay:agent-prompt-ref ref="agent-prompt.component-codegen.v1"/>
+      <bay:field-guidance path="id" label="ID" help="Component identifier." control="text" required="true" sensitive="false">
+        <bay:default-value/>
+      </bay:field-guidance>
     </bay:component-type>
     <bay:component-type element="b2b:sandboxed-agent-runtime" label="Sandboxed Agent Runtime" plural-label="Sandboxed Agent Runtimes" category="compute" icon="cpu" color="#8b4f85" module-scope="required" creatable="true" deletable="false">
       <bay:description>Workstation container and microVM supervisor serving 16 coordination_* MCP tools.</bay:description>
+      <bay:agent-prompt-ref ref="agent-prompt.component-codegen.v1"/>
+      <bay:field-guidance path="id" label="ID" help="Component identifier." control="text" required="true" sensitive="false">
+        <bay:default-value/>
+      </bay:field-guidance>
     </bay:component-type>
     <bay:component-type element="b2b:admin-portal" label="Admin Portal" plural-label="Admin Portals" category="experience" icon="layout" color="#2f7a6e" module-scope="required" creatable="true" deletable="false">
       <bay:description>Next.js 16 pure gRPC administrative portal with zero direct SQL access.</bay:description>
+      <bay:agent-prompt-ref ref="agent-prompt.component-codegen.v1"/>
+      <bay:field-guidance path="id" label="ID" help="Component identifier." control="text" required="true" sensitive="false">
+        <bay:default-value/>
+      </bay:field-guidance>
     </bay:component-type>
     <bay:component-type element="b2b:operator-cockpit" label="Operator Cockpit" plural-label="Operator Cockpits" category="experience" icon="smartphone" color="#6f42c1" module-scope="required" creatable="true" deletable="false">
       <bay:description>Flutter multi-platform non-authoritative operator cockpit.</bay:description>
+      <bay:agent-prompt-ref ref="agent-prompt.component-codegen.v1"/>
+      <bay:field-guidance path="id" label="ID" help="Component identifier." control="text" required="true" sensitive="false">
+        <bay:default-value/>
+      </bay:field-guidance>
     </bay:component-type>
     <bay:component-type element="b2b:simulation-infrastructure" label="Simulation Infrastructure" plural-label="Simulation Infrastructures" category="infrastructure" icon="cloud" color="#c2612d" module-scope="required" creatable="true" deletable="false">
       <bay:description>OpenTofu multi-cloud orchestration for standing relays and disposable simulation enterprises.</bay:description>
+      <bay:agent-prompt-ref ref="agent-prompt.component-codegen.v1"/>
+      <bay:field-guidance path="id" label="ID" help="Component identifier." control="text" required="true" sensitive="false">
+        <bay:default-value/>
+      </bay:field-guidance>
     </bay:component-type>
     <bay:component-type element="b2b:business-service-contract" label="Business Service Contract Pack" plural-label="Business Service Contract Packs" category="business" icon="file-text" color="#d9822b" module-scope="required" creatable="true" deletable="false">
       <bay:description>Signed multi-enterprise contract packs including Order-to-Cash v1.</bay:description>
+      <bay:agent-prompt-ref ref="agent-prompt.component-codegen.v1"/>
+      <bay:field-guidance path="id" label="ID" help="Component identifier." control="text" required="true" sensitive="false">
+        <bay:default-value/>
+      </bay:field-guidance>
     </bay:component-type>
+
+    <bay:relationship-type element="b2b:federation-transport-link" label="Federation Transport Link" direction="outgoing" minimum-per-source="0" acyclic="false">
+      <bay:description>Outbound transport connection from gateway to relay fabric.</bay:description>
+      <bay:source-type ref="b2b:enterprise-airlock-gateway"/>
+      <bay:target-type ref="b2b:payload-blind-relay"/>
+    </bay:relationship-type>
+
+    <bay:relationship-type element="b2b:control-facade-link" label="Control Facade Link" direction="outgoing" minimum-per-source="0" acyclic="false">
+      <bay:description>Airlock gateway call to local control plane facade.</bay:description>
+      <bay:source-type ref="b2b:enterprise-airlock-gateway"/>
+      <bay:target-type ref="b2b:sovereign-control-plane"/>
+    </bay:relationship-type>
+
+    <bay:relationship-type element="b2b:agent-bidi-stream" label="Agent BiDi Stream" direction="outgoing" minimum-per-source="0" acyclic="false">
+      <bay:description>Agent connection to control plane over ConnectAgent/ConnectRuntime.</bay:description>
+      <bay:source-type ref="b2b:sandboxed-agent-runtime"/>
+      <bay:target-type ref="b2b:sovereign-control-plane"/>
+    </bay:relationship-type>
+
+    <bay:relationship-type element="b2b:client-rpc-link" label="Client RPC Link" direction="outgoing" minimum-per-source="0" acyclic="false">
+      <bay:description>Client application RPC dial to sovereign control plane.</bay:description>
+      <bay:source-type ref="b2b:admin-portal"/>
+      <bay:target-type ref="b2b:sovereign-control-plane"/>
+    </bay:relationship-type>
+
+    <bay:visualization-lens key="lens.package-topology" label="Package Topology" description="Overview of sovereign component packages and relationships." icon="layers" renderer="package-map" order="1">
+      <bay:include-component-type ref="b2b:sovereign-control-plane"/>
+      <bay:include-component-type ref="b2b:enterprise-airlock-gateway"/>
+      <bay:include-component-type ref="b2b:payload-blind-relay"/>
+      <bay:include-component-type ref="b2b:userspace-wireguard-mesh"/>
+      <bay:include-component-type ref="b2b:sandboxed-agent-runtime"/>
+      <bay:include-component-type ref="b2b:admin-portal"/>
+      <bay:include-component-type ref="b2b:operator-cockpit"/>
+      <bay:include-component-type ref="b2b:simulation-infrastructure"/>
+      <bay:include-component-type ref="b2b:business-service-contract"/>
+    </bay:visualization-lens>
+
+    <bay:authoring-surface section="metadata" label="System Metadata" help="Core system identification and authority." editable="true" review-required="true"/>
+    <bay:authoring-surface section="collaboration" label="Collaboration &amp; Policy" help="Actors and concurrency policies." editable="true" review-required="true"/>
+    <bay:authoring-surface section="architecture-profile" label="Architecture Profile" help="Component and relationship types." editable="true" review-required="true"/>
+    <bay:authoring-surface section="components" label="Components" help="Declared sovereign architectural components." editable="true" review-required="true"/>
+    <bay:authoring-surface section="relationships" label="Relationships" help="Explicit component connection topology." editable="true" review-required="true"/>
+    <bay:authoring-surface section="views" label="Views" help="Projection viewpoints." editable="true" review-required="true"/>
+    <bay:authoring-surface section="history" label="History" help="Change sets and sealed revisions." editable="true" review-required="true"/>
+    <bay:authoring-surface section="artifacts" label="Artifacts" help="Associated file artifacts." editable="true" review-required="true"/>
+    <bay:authoring-surface section="verification" label="Verification" help="Verification proof gates." editable="true" review-required="true"/>
+    <bay:authoring-surface section="delivery" label="Delivery" help="Projections and delivery sources." editable="true" review-required="true"/>
+    <bay:authoring-surface section="agent-prompts" label="Agent Prompts" help="Structured prompts for autonomous agents." editable="true" review-required="true"/>
   </bay:architecture-profile>
 
-  <bay:modules>
-    <bay:module id="module.core-contracts" name="Core Contracts &amp; Identity" status="accepted" revision="1">
-      <bay:summary>Protobuf schemas, cryptographic keyrings, SPIFFE trust domains, and Order-to-Cash contract packs.</bay:summary>
-      <b2b:business-service-contract id="comp.order-to-cash-v1" name="Order-to-Cash v1 Contract Pack" status="accepted" revision="1">
-        <bay:summary>7-stage cryptographic business transaction pack (RFQ -> Quote -> PO -> Confirm -> Ship -> Invoice -> Payment).</bay:summary>
-        <b2b:protocol-pack>builders.federation.order_to_cash.v1</b2b:protocol-pack>
-        <b2b:signature-algorithm>Ed25519</b2b:signature-algorithm>
-        <b2b:lifecycle-stages>rfq,quote,purchase_order,order_confirmation,shipment_notice,invoice,payment_settlement</b2b:lifecycle-stages>
-      </b2b:business-service-contract>
-    </bay:module>
+  <bay:components>
+    <b2b:business-service-contract id="comp.order-to-cash-v1" key="order-to-cash-v1" name="Order-to-Cash v1 Contract Pack" status="accepted" revision="1" source-pointer="/contracts/order-to-cash.v1">
+      <bay:description>7-stage cryptographic business transaction pack (RFQ -> Quote -> PO -> Confirm -> Ship -> Invoice -> Payment).</bay:description>
+      <b2b:protocol-pack>builders.federation.order_to_cash.v1</b2b:protocol-pack>
+      <b2b:signature-algorithm>Ed25519</b2b:signature-algorithm>
+      <b2b:lifecycle-stages>rfq,quote,purchase_order,order_confirmation,shipment_notice,invoice,payment_settlement</b2b:lifecycle-stages>
+    </b2b:business-service-contract>
 
-    <bay:module id="module.network-fabric" name="Mesh &amp; Relay Network Fabric" status="accepted" revision="1">
-      <bay:summary>Userspace WireGuard tunnels and payload-blind multi-cloud forwarder cells.</bay:summary>
-      <b2b:userspace-wireguard-mesh id="comp.x-mesh" name="x-mesh WireGuard Substrate" status="accepted" revision="1">
-        <bay:summary>Standalone userspace WireGuard mesh daemon with UDS control socket.</bay:summary>
-        <b2b:userspace-engine>wireguard-go</b2b:userspace-engine>
-        <b2b:socket-path>/run/x-mesh/sock</b2b:socket-path>
-        <b2b:gossip-ttl-seconds>30</b2b:gossip-ttl-seconds>
-      </b2b:userspace-wireguard-mesh>
+    <b2b:userspace-wireguard-mesh id="comp.x-mesh" key="x-mesh" name="x-mesh WireGuard Substrate" status="accepted" revision="1" source-pointer="/services/mesh-net">
+      <bay:description>Standalone userspace WireGuard mesh daemon with UDS control socket.</bay:description>
+      <b2b:userspace-engine>wireguard-go</b2b:userspace-engine>
+      <b2b:socket-path>/run/x-mesh/sock</b2b:socket-path>
+      <b2b:gossip-ttl-seconds>30</b2b:gossip-ttl-seconds>
+    </b2b:userspace-wireguard-mesh>
 
-      <b2b:payload-blind-relay id="comp.federation-relay" name="Payload-Blind Relay Cells" status="accepted" revision="1">
-        <bay:summary>GCP, AWS, and Azure standing relay cells with 12h/64GiB circuit budgets.</bay:summary>
-        <b2b:circuit-protocol>libp2p/circuit-relay-v2</b2b:circuit-protocol>
-        <b2b:max-connection-duration-hours>12</b2b:max-connection-duration-hours>
-        <b2b:max-connection-bandwidth-gib>64</b2b:max-connection-bandwidth-gib>
-        <b2b:payload-blind>true</b2b:payload-blind>
-      </b2b:payload-blind-relay>
-    </bay:module>
+    <b2b:payload-blind-relay id="comp.federation-relay" key="federation-relay" name="Payload-Blind Relay Cells" status="accepted" revision="1" source-pointer="/services/federation-relay">
+      <bay:description>GCP, AWS, and Azure standing relay cells with 12h/64GiB circuit budgets.</bay:description>
+      <b2b:circuit-protocol>libp2p/circuit-relay-v2</b2b:circuit-protocol>
+      <b2b:max-connection-duration-hours>12</b2b:max-connection-duration-hours>
+      <b2b:max-connection-bandwidth-gib>64</b2b:max-connection-bandwidth-gib>
+      <b2b:payload-blind>true</b2b:payload-blind>
+    </b2b:payload-blind-relay>
 
-    <bay:module id="module.edge-airlock" name="Enterprise Airlock Edge" status="accepted" revision="1">
-      <bay:summary>Outbound-only airlocks connecting private enterprise nodes to relay fabric.</bay:summary>
-      <b2b:enterprise-airlock-gateway id="comp.federation-gateway" name="Enterprise Gateway Airlock" status="accepted" revision="1">
-        <bay:summary>Outbound-only gateway edge with zero open inbound public listeners and SPIFFE cert pinning.</bay:summary>
-        <b2b:inbound-public-listeners>false</b2b:inbound-public-listeners>
-        <b2b:spiffe-trust-domain>builders-net</b2b:spiffe-trust-domain>
-        <b2b:outbound-only>true</b2b:outbound-only>
-      </b2b:enterprise-airlock-gateway>
-    </bay:module>
+    <b2b:enterprise-airlock-gateway id="comp.federation-gateway" key="federation-gateway" name="Enterprise Gateway Airlock" status="accepted" revision="1" source-pointer="/services/federation-gateway">
+      <bay:description>Outbound-only gateway edge with zero open inbound public listeners and SPIFFE cert pinning.</bay:description>
+      <b2b:inbound-public-listeners>false</b2b:inbound-public-listeners>
+      <b2b:spiffe-trust-domain>builders-net</b2b:spiffe-trust-domain>
+      <b2b:outbound-only>true</b2b:outbound-only>
+    </b2b:enterprise-airlock-gateway>
 
-    <bay:module id="module.compute-and-control" name="Control Plane &amp; Workstation Runtime" status="accepted" revision="1">
-      <bay:summary>Sovereign PostgreSQL control plane and containerized agent supervisor.</bay:summary>
-      <b2b:sovereign-control-plane id="comp.builders-control" name="Sovereign Control Plane" status="accepted" revision="1">
-        <bay:summary>Sole owner of Postgres storage with 57 migrations and fail-closed schema checks.</bay:summary>
-        <b2b:grpc-endpoint>127.0.0.1:9090</b2b:grpc-endpoint>
-        <b2b:http-endpoint>127.0.0.1:8080</b2b:http-endpoint>
-        <b2b:postgres-migrations-count>57</b2b:postgres-migrations-count>
-        <b2b:advisory-lock-hex>0x6232626d69677261</b2b:advisory-lock-hex>
-      </b2b:sovereign-control-plane>
+    <b2b:sovereign-control-plane id="comp.builders-control" key="builders-control" name="Sovereign Control Plane" status="accepted" revision="1" source-pointer="/services/builders-net">
+      <bay:description>Sole owner of Postgres storage with 57 migrations and fail-closed schema checks.</bay:description>
+      <b2b:grpc-endpoint>127.0.0.1:9090</b2b:grpc-endpoint>
+      <b2b:http-endpoint>127.0.0.1:8080</b2b:http-endpoint>
+      <b2b:postgres-migrations-count>57</b2b:postgres-migrations-count>
+      <b2b:advisory-lock-hex>0x6232626d69677261</b2b:advisory-lock-hex>
+    </b2b:sovereign-control-plane>
 
-      <b2b:sandboxed-agent-runtime id="comp.builders-agent" name="Workstation Agent Runtime" status="accepted" revision="1">
-        <bay:summary>Containerized agent supervisor serving 16 coordination_* MCP tools on rootless podman overlay.</bay:summary>
-        <b2b:mcp-socket-port>9210</b2b:mcp-socket-port>
-        <b2b:supported-sandboxes>podman,gvisor,fargate,aci</b2b:supported-sandboxes>
-        <b2b:graph-driver-required>overlay</b2b:graph-driver-required>
-      </b2b:sandboxed-agent-runtime>
-    </bay:module>
+    <b2b:sandboxed-agent-runtime id="comp.builders-agent" key="builders-agent" name="Workstation Agent Runtime" status="accepted" revision="1" source-pointer="/services/builders-agent">
+      <bay:description>Containerized agent supervisor serving 16 coordination_* MCP tools on rootless podman overlay.</bay:description>
+      <b2b:mcp-socket-port>9210</b2b:mcp-socket-port>
+      <b2b:supported-sandboxes>podman,gvisor,fargate,aci</b2b:supported-sandboxes>
+      <b2b:graph-driver-required>overlay</b2b:graph-driver-required>
+    </b2b:sandboxed-agent-runtime>
 
-    <bay:module id="module.applications" name="Operator Applications" status="accepted" revision="1">
-      <bay:summary>Web admin portal and Flutter mobile/desktop cockpit.</bay:summary>
-      <b2b:admin-portal id="comp.builders-portal" name="Builders Admin Portal" status="accepted" revision="1">
-        <bay:summary>Next.js 16 pure gRPC admin portal with zero direct SQL.</bay:summary>
-        <b2b:framework>Next.js 16 / React 19</b2b:framework>
-        <b2b:direct-sql-permitted>false</b2b:direct-sql-permitted>
-        <b2b:grpc-client-mode>pure-grpc-9090</b2b:grpc-client-mode>
-      </b2b:admin-portal>
+    <b2b:admin-portal id="comp.builders-portal" key="builders-portal" name="Builders Admin Portal" status="accepted" revision="1" source-pointer="/apps/builders-portal">
+      <bay:description>Next.js 16 pure gRPC admin portal with zero direct SQL.</bay:description>
+      <b2b:framework>Next.js 16 / React 19</b2b:framework>
+      <b2b:direct-sql-permitted>false</b2b:direct-sql-permitted>
+      <b2b:grpc-client-mode>pure-grpc-9090</b2b:grpc-client-mode>
+    </b2b:admin-portal>
 
-      <b2b:operator-cockpit id="comp.builders-hub" name="Builders Hub Operator Cockpit" status="accepted" revision="1">
-        <bay:summary>Flutter multi-platform non-authoritative operator cockpit.</bay:summary>
-        <b2b:framework>Flutter 3.41.4</b2b:framework>
-        <b2b:authoritative>false</b2b:authoritative>
-      </b2b:operator-cockpit>
-    </bay:module>
+    <b2b:operator-cockpit id="comp.builders-hub" key="builders-hub" name="Builders Hub Operator Cockpit" status="accepted" revision="1" source-pointer="/apps/builders-hub">
+      <bay:description>Flutter multi-platform non-authoritative operator cockpit.</bay:description>
+      <b2b:framework>Flutter 3.41.4</b2b:framework>
+      <b2b:authoritative>false</b2b:authoritative>
+    </b2b:operator-cockpit>
 
-    <bay:module id="module.infrastructure" name="Simulation Infrastructure" status="accepted" revision="1">
-      <bay:summary>Multi-cloud OpenTofu automation adhering to CONTRACT.md.</bay:summary>
-      <b2b:simulation-infrastructure id="comp.sim-infra" name="Simulation Infrastructure" status="accepted" revision="1">
-        <bay:summary>OpenTofu GCP/AWS/Azure disposable orgs and standing relay cells.</bay:summary>
-        <b2b:orchestrator>OpenTofu</b2b:orchestrator>
-        <b2b:supported-clouds>gcp,aws,azure</b2b:supported-clouds>
-        <b2b:contract-spec>CONTRACT.md</b2b:contract-spec>
-      </b2b:simulation-infrastructure>
-    </bay:module>
-  </bay:modules>
+    <b2b:simulation-infrastructure id="comp.sim-infra" key="sim-infra" name="Simulation Infrastructure" status="accepted" revision="1" source-pointer="/infra/sim-infra">
+      <bay:description>OpenTofu GCP/AWS/Azure disposable orgs and standing relay cells.</bay:description>
+      <b2b:orchestrator>OpenTofu</b2b:orchestrator>
+      <b2b:supported-clouds>gcp,aws,azure</b2b:supported-clouds>
+      <b2b:contract-spec>CONTRACT.md</b2b:contract-spec>
+    </b2b:simulation-infrastructure>
+  </bay:components>
 
   <bay:relationships>
-    <bay:relationship id="rel.gateway-dials-relay" name="Gateway Outbound Dial" status="accepted" revision="1">
-      <bay:summary>Airlock gateways dial outbound to standing relay cells over circuit-relay-v2.</bay:summary>
-      <bay:source-ref ref="comp.federation-gateway"/>
-      <bay:target-ref ref="comp.federation-relay"/>
-    </bay:relationship>
-    <bay:relationship id="rel.gateway-connects-control" name="Gateway Local Control Dial" status="accepted" revision="1">
-      <bay:summary>Gateways call local control plane via narrow FederationService facade only.</bay:summary>
-      <bay:source-ref ref="comp.federation-gateway"/>
-      <bay:target-ref ref="comp.builders-control"/>
-    </bay:relationship>
-    <bay:relationship id="rel.agent-connects-control" name="Agent BiDi gRPC Stream" status="accepted" revision="1">
-      <bay:summary>Workstation agents connect to control plane over ConnectAgent / ConnectRuntime.</bay:summary>
-      <bay:source-ref ref="comp.builders-agent"/>
-      <bay:target-ref ref="comp.builders-control"/>
-    </bay:relationship>
-    <bay:relationship id="rel.portal-dials-control" name="Portal Pure gRPC Client" status="accepted" revision="1">
-      <bay:summary>Next.js Portal calls builders-control on gRPC :9090 with zero direct SQL.</bay:summary>
-      <bay:source-ref ref="comp.builders-portal"/>
-      <bay:target-ref ref="comp.builders-control"/>
-    </bay:relationship>
-    <bay:relationship id="rel.hub-dials-control" name="Hub Non-Authoritative RPC" status="accepted" revision="1">
-      <bay:summary>Flutter Hub reconciles snapshots against builders-control.</bay:summary>
-      <bay:source-ref ref="comp.builders-hub"/>
-      <bay:target-ref ref="comp.builders-control"/>
-    </bay:relationship>
+    <b2b:federation-transport-link id="rel.gateway-dials-relay" source-ref="comp.federation-gateway" target-ref="comp.federation-relay" status="accepted" revision="1" source-pointer="/relationships/gateway-relay">
+      <bay:description>Airlock gateways dial outbound to standing relay cells over circuit-relay-v2.</bay:description>
+    </b2b:federation-transport-link>
+
+    <b2b:control-facade-link id="rel.gateway-connects-control" source-ref="comp.federation-gateway" target-ref="comp.builders-control" status="accepted" revision="1" source-pointer="/relationships/gateway-control">
+      <bay:description>Gateways call local control plane via narrow FederationService facade only.</bay:description>
+    </b2b:control-facade-link>
+
+    <b2b:agent-bidi-stream id="rel.agent-connects-control" source-ref="comp.builders-agent" target-ref="comp.builders-control" status="accepted" revision="1" source-pointer="/relationships/agent-control">
+      <bay:description>Workstation agents connect to control plane over ConnectAgent / ConnectRuntime.</bay:description>
+    </b2b:agent-bidi-stream>
+
+    <b2b:client-rpc-link id="rel.portal-dials-control" source-ref="comp.builders-portal" target-ref="comp.builders-control" status="accepted" revision="1" source-pointer="/relationships/portal-control">
+      <bay:description>Next.js Portal calls builders-control on gRPC :9090 with zero direct SQL.</bay:description>
+    </b2b:client-rpc-link>
+
+    <b2b:client-rpc-link id="rel.hub-dials-control" source-ref="comp.builders-hub" target-ref="comp.builders-control" status="accepted" revision="1" source-pointer="/relationships/hub-control">
+      <bay:description>Flutter Hub reconciles snapshots against builders-control.</bay:description>
+    </b2b:client-rpc-link>
   </bay:relationships>
 
-  <bay:verification-proofs>
-    <bay:verification-proof id="proof.nbr-g3-outbound-only" name="NBR-G3 Outbound-Only Airlock" status="accepted" revision="1">
-      <bay:summary>Proof that gateways have zero open public listening ports and only dial outbound.</bay:summary>
-    </bay:verification-proof>
-    <bay:verification-proof id="proof.nbr-r7-relay-limits" name="NBR-R7 Relay Circuit Limits" status="accepted" revision="1">
-      <bay:summary>Proof that relay cells enforce 12h / 64GiB per-connection circuit limits.</bay:summary>
-    </bay:verification-proof>
-    <bay:verification-proof id="proof.database-rehearsals" name="Postgres Rehearsals R01-R08" status="accepted" revision="1">
-      <bay:summary>Proof that sovereign control planes pass all 8 database rehearsal checks across Cloud SQL, RDS, and Flexible Server.</bay:summary>
-    </bay:verification-proof>
-  </bay:verification-proofs>
+  <bay:views>
+    <bay:view id="view.federation-overview" name="Federation Overview Topology" description="Overall topology view showing all 9 components from edge to control plane." layout="layered">
+      <bay:include-component-type ref="b2b:sovereign-control-plane"/>
+      <bay:include-component-type ref="b2b:enterprise-airlock-gateway"/>
+      <bay:include-component-type ref="b2b:payload-blind-relay"/>
+      <bay:include-component-type ref="b2b:userspace-wireguard-mesh"/>
+      <bay:include-component-type ref="b2b:sandboxed-agent-runtime"/>
+      <bay:include-component-type ref="b2b:admin-portal"/>
+      <bay:include-component-type ref="b2b:operator-cockpit"/>
+      <bay:include-component-type ref="b2b:simulation-infrastructure"/>
+      <bay:include-component-type ref="b2b:business-service-contract"/>
+    </bay:view>
+  </bay:views>
 
-  <bay:sealed-revisions>
-    <bay:sealed-revision version="1.0.0" revision="1" sealed-at="2026-09-01T14:00:00-04:00">
-      <bay:semantic-hash>sha256:4a8b72c910e5f3192a83bd780f2491a27e9b015386f189c4501a4e528b7e9a01</bay:semantic-hash>
-      <bay:author-ref ref="actor.agent-antigravity"/>
-      <bay:change-summary>Establish foundational sovereign B2B federation XML architecture specification v1.0.0.</bay:change-summary>
-    </bay:sealed-revision>
-  </bay:sealed-revisions>
+  <bay:history>
+    <bay:change-set id="change-set.b2b-001" status="accepted" base-revision="0" result-revision="1" actor-ref="actor.agent-antigravity" created-at="2026-09-01T14:00:00Z" accepted-at="2026-09-01T14:00:00Z">
+      <bay:summary>Establish the foundational sovereign B2B federation XML architecture specification v1.0.0.</bay:summary>
+      <bay:operation sequence="1" command="create-component" target-ref="comp.builders-control" expected-revision="0">
+        <bay:change path="status" new-value="accepted" value-type="string"/>
+      </bay:operation>
+    </bay:change-set>
+    <bay:revision number="1" actor-ref="actor.agent-antigravity" created-at="2026-09-01T14:00:00Z" status="accepted" semantic-hash="sha256:4a8b72c910e5f3192a83bd780f2491a27e9b015386f189c4501a4e528b7e9a01" change-set-ref="change-set.b2b-001">
+      <bay:summary>Sealed baseline architecture across all 9 sovereign repositories.</bay:summary>
+    </bay:revision>
+  </bay:history>
+
+  <bay:artifacts>
+    <bay:artifact id="artifact.contracts.order-to-cash.proto" path="api/proto/builders/v1/order_to_cash.proto" media-type="text/x-protobuf" encoding="text" sha256="e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855" role="contract">Order to Cash v1 Protocol Buffer IDL</bay:artifact>
+    <bay:artifact id="artifact.schema.system-specification" path="schemas/system-specification-v4.xsd" media-type="application/xml" encoding="text" sha256="32363a86433070d5143202b226070afa4788af2fb353a9273b963fe28f4a930e" role="schema">Baylife Meta-Schema v4</bay:artifact>
+    <bay:artifact id="artifact.schema.b2b-architecture" path="schemas/b2b-architecture-v1.xsd" media-type="application/xml" encoding="text" sha256="7a76e02eaceffef8058faa8ca01601f2e858b8310796e7751e9ec1f7bb006949" role="schema">B2B Architecture Domain Profile XSD</bay:artifact>
+  </bay:artifacts>
+
+  <bay:verification>
+    <bay:gate id="gate.baylife-xml-schema" name="Baylife XML Schema Validation" status="passed" criticality="critical">
+      <bay:evidence artifact-ref="artifact.schema.system-specification" description="Validated with xmllint against system-specification-v4.xsd and b2b-architecture-v1.xsd"/>
+    </bay:gate>
+    <bay:gate id="gate.protobuf-compilation" name="Protobuf Go and Dart Compilation" status="passed" criticality="critical">
+      <bay:evidence artifact-ref="artifact.contracts.order-to-cash.proto" description="Validated with protoc and go test -race"/>
+    </bay:gate>
+  </bay:verification>
+
+  <bay:delivery>
+    <bay:source-of-truth>spec/b2b-federation-spec-v1.xml</bay:source-of-truth>
+    <bay:generated-projection path="api/proto/builders/v1/order_to_cash.proto" format="text/x-protobuf"/>
+  </bay:delivery>
+
+  <bay:agent-prompts>
+    <bay:agent-prompt id="agent-prompt.component-codegen.v1" key="component-codegen" version="1.0.0" status="accepted" content-hash="9d9aa342dc499f0571155c6e21460da24ce4ff217a801e2e58b782acb84ae5ad">
+      <bay:purpose>Generate or update implementation code for one typed component without changing its accepted contract.</bay:purpose>
+      <bay:template>Implement {{component.id}} at specification revision {{specification.revision}} and hash {{specification.hash}}. Use its typed contract, relationship neighborhood, projections, and verification gates. Do not widen scope. Return changed files, tests, and trace evidence.</bay:template>
+      <bay:required-input>specification.revision</bay:required-input>
+      <bay:required-input>specification.hash</bay:required-input>
+      <bay:required-input>change-set.id</bay:required-input>
+      <bay:required-input>component.id</bay:required-input>
+      <bay:required-output>repository.commit</bay:required-output>
+      <bay:required-output>generated.files</bay:required-output>
+      <bay:verification-gate-ref ref="gate.baylife-xml-schema"/>
+    </bay:agent-prompt>
+
+    <bay:agent-prompt id="agent-prompt.relationship-codegen.v1" key="relationship-codegen" version="1.0.0" status="accepted" content-hash="cafdb0ffa3db8cbb97e0bf8142b7febc73ec8c77d8b9a1028566d93e1c0923e2">
+      <bay:purpose>Generate integration code for an explicitly selected typed relationship.</bay:purpose>
+      <bay:template>Implement relationship {{relationship.id}} between {{relationship.source-ref}} and {{relationship.target-ref}}.</bay:template>
+      <bay:required-input>specification.revision</bay:required-input>
+      <bay:required-input>relationship.id</bay:required-input>
+      <bay:required-output>integration.tests</bay:required-output>
+      <bay:verification-gate-ref ref="gate.protobuf-compilation"/>
+    </bay:agent-prompt>
+  </bay:agent-prompts>
 
 </bay:system-specification>

@@ -21,6 +21,12 @@
   <xs:element name="simulation-infrastructure" substitutionGroup="bay:component" type="b2b:simInfraType"/>
   <xs:element name="business-service-contract" substitutionGroup="bay:component" type="b2b:serviceContractType"/>
 
+  <!-- Concrete B2B Relationships -->
+  <xs:element name="federation-transport-link" substitutionGroup="bay:relationship" type="b2b:transportLinkType"/>
+  <xs:element name="control-facade-link" substitutionGroup="bay:relationship" type="b2b:controlFacadeLinkType"/>
+  <xs:element name="agent-bidi-stream" substitutionGroup="bay:relationship" type="b2b:agentBidiStreamType"/>
+  <xs:element name="client-rpc-link" substitutionGroup="bay:relationship" type="b2b:clientRpcLinkType"/>
+
   <xs:complexType name="controlPlaneType">
     <xs:complexContent>
       <xs:extension base="bay:componentType">
@@ -127,6 +133,30 @@
           <xs:element name="lifecycle-stages" type="bay:nonBlankStringType"/>
         </xs:sequence>
       </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <xs:complexType name="transportLinkType">
+    <xs:complexContent>
+      <xs:extension base="bay:relationshipType"/>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <xs:complexType name="controlFacadeLinkType">
+    <xs:complexContent>
+      <xs:extension base="bay:relationshipType"/>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <xs:complexType name="agentBidiStreamType">
+    <xs:complexContent>
+      <xs:extension base="bay:relationshipType"/>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <xs:complexType name="clientRpcLinkType">
+    <xs:complexContent>
+      <xs:extension base="bay:relationshipType"/>
     </xs:complexContent>
   </xs:complexType>
 
