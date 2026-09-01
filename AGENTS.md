@@ -1,0 +1,161 @@
+# `xx-federation-contracts` — Agent & Developer Onboarding Guide
+
+Welcome to **`xx-federation-contracts`** (`github.com/b2bautopilot/xx-federation-contracts`), the sovereign federation contracts, schemas, and cryptographic identity foundation for **B2B Autopilot / Builders Net**.
+
+This document is the authoritative onboarding guide for both human engineers and AI coding agents working in this repository. Read this file completely before authoring or modifying code.
+
+---
+
+## 1. Repository Purpose & System Context
+
+In the B2B Autopilot architecture, independent enterprises operate sovereign control planes and private meshes with no inbound public access. Enterprises federate through outbound-only gateways meeting at a payload-blind multi-cloud relay fabric.
+
+`xx-federation-contracts` represents **Target Repository #6** under **ADR 0009 / ADR 0010** (Decoupling Monorepo `xyz-b2b` into 9 sovereign repositories).
+
+### What this repository IS:
+- The single source of truth for inter-enterprise API contracts, wire protocols, and contract packs (`order_to_cash.v1`).
+- The canonical provider of SPIFFE/mTLS component identities and cryptographic verification primitives.
+- The provider of Ed25519 signing material abstractions (audit signing, SSH CA, fabric membership, service access).
+- The definition of universal application error codes and build provenance release manifests.
+
+### What this repository IS NOT:
+- It does **NOT** own Postgres databases or stateful storage (Postgres is strictly owned by `xx-builders-net`).
+- It does **NOT** manage container sandboxes, execution lifecycles, or LLM agents (owned by `xx-builders-agent`).
+- It does **NOT** run network servers, libp2p nodes, or WireGuard daemons (owned by `xx-federation-gateway`, `xx-federation-relay`, and `xx-mesh-net`).
+
+---
+
+## 2. Non-Negotiable Architectural Invariants
+
+Every change in this repository must preserve the following core invariants:
+
+### Invariant 1: Zero Business Logic in Transport
+- Inter-enterprise exchange schemas and payloads must separate transport framing from business domain operations.
+- Relays (`xx-federation-relay`) must remain completely payload-blind, handling only ciphertext splicing and gossip presence.
+- Gateways (`xx-federation-gateway`) must enforce contract preflights using the schema validators defined here without baking in bespoke workflow logic.
+
+### Invariant 2: Ed25519 Cryptographic Manifests & Signatures
+- All manifests, governance approvals, and capability tokens are signed with Ed25519 keys.
+- Digest calculations must operate on canonicalized, byte-identical serializations.
+- Manifest verification is fail-closed: invalid signatures, unknown key IDs, or mismatched digests must be rejected immediately.
+
+### Invariant 3: SPIFFE Identity & Trust Domain Enforcement
+- Component identities strictly follow the `builders-net` trust domain:
+  - Workloads: `spiffe://builders-net/workload/...`
+  - Gateways: `spiffe://builders-net/federation-gateway/tenant/<tenant>/gateway/<gateway>`
+  - Agents: `x-builders-agent://tenant/<tenant>/project/<project>/node/<node>`
+- Mutual TLS must verify client certificates against the authorized CA bundle.
+
+### Invariant 4: Fail-Closed Security & Sanitized Errors
+- Error messages must never leak internal network topology, private IPs (e.g. `10.x.x.x`, `192.168.x.x`), unredacted SPIFFE internals, or private keys.
+- Unknown fields in capability tokens or manifest structures must not cause security bypasses.
+
+### Invariant 5: Clean, Self-Contained Go Module
+- `go.mod` must remain completely self-contained with **zero local `replace` directives**.
+- Dependencies must be strictly scoped to standard libraries and essential vetted packages (`google.golang.org/grpc`, `golang.org/x/crypto`, `github.com/google/uuid`).
+
+---
+
+## 3. Directory & Package Layout
+
+```
+xx-federation-contracts/
+├── apperrors/                      # Shared error taxonomy & codes
+│   └── errors.go
+├── contracts/                      # Inter-enterprise contract definitions
+│   ├── cmd/manifestsign/           # CLI tool for manifest authority signing
+│   │   └── main.go
+│   ├── contractapproval/           # Multi-tenant contract approval & signing records
+│   │   ├── approval.go
+│   │   └── approval_test.go
+│   ├── contractmanifest/           # Ed25519 signed manifest format & verifier
+│   │   ├── manifest.go
+│   │   ├── manifest_race_test.go
+│   │   └── manifest_test.go
+│   ├── contractpacks/              # Concrete business interaction packs
+│   │   └── ordertocash/            # Order-to-Cash v1 state machine & schemas
+│   │       ├── pack.go
+│   │       └── pack_test.go
+│   ├── exchange/                   # Gateway exchange protocol v1
+│   │   ├── discovery.go
+│   │   ├── exchange.go
+│   │   └── *_test.go
+│   └── servicecatalog/             # Partner-visible service registry schemas
+│       ├── servicecatalog.go
+│       └── servicecatalog_test.go
+├── identity/                       # SPIFFE identity, mTLS credentials, CA & CSR
+│   ├── certcheck.go
+│   ├── certissue.go
+│   ├── csrverify.go
+│   ├── identity.go
+│   ├── provider.go
+│   ├── tls.go
+│   └── *_test.go
+├── keymaterial/                    # Ed25519 signing key providers (Audit, SSH, Fabric)
+│   ├── keymaterial.go
+│   └── *_test.go
+├── release/                        # Release manifest, provenance, acceptance records
+│   ├── acceptance.go
+│   ├── production_evidence.go
+│   ├── release.go
+│   └── *_test.go
+├── go.mod
+├── go.sum
+├── README.md
+├── AGENTS.md
+└── SPEC-DRIVEN-DEVELOPMENT.md
+```
+
+---
+
+## 4. Subsystem Deep Dives
+
+### `contracts/contractmanifest`
+- Defines `Manifest` and `SignedDocument`.
+- Canonicalizes manifest payloads using deterministic JSON encoding before signing.
+- Computes SHA-256 manifest hash `ManifestHashSHA256`.
+- `Verify(SignedDocument, PublicKey)` provides thread-safe, race-tested signature verification.
+
+### `contracts/contractpacks/ordertocash`
+- Implements the 7 core interactions of `order_to_cash.v1`:
+  1. `request_for_quote`: Initial buyer inquiry with line items and delivery terms.
+  2. `submit_quote`: Seller quote response with price schedules and validity periods.
+  3. `submit_purchase_order`: Buyer purchase order referencing quote hash.
+  4. `confirm_order`: Seller order confirmation.
+  5. `update_shipment_status`: Carrier/seller tracking updates.
+  6. `issue_invoice`: Structured payment request with tax details.
+  7. `update_payment_status`: Remittance confirmation and settlement status.
+- Strict payload validation enforces schema adherence, preventing payload tampering or malformed transactions.
+
+### `identity`
+- Extracts typed identities (`RuntimeIdentity`, `AgentIdentity`, `GatewayIdentity`) directly from `credentials.AuthInfo` in gRPC context.
+- Configures mTLS via `ServerTransportCredentials` and `ClientTransportCredentials` with embedded SAN verification and CRL checking.
+
+### `keymaterial`
+- Separates cryptographic keys by security domain:
+  - `DevLocalAuditSigningKey()`: Deterministic audit log signer for local development.
+  - `DevLocalMembershipSigningKey()`: libp2p network admission capability signer.
+  - `DevLocalServiceAccessSigningKey()`: Sovereign microservice exposure (`fed-svc`) capability signer.
+  - `ProviderConfig`: Production loader integrating with KMS and Vault mounted secrets.
+
+---
+
+## 5. Development & Testing Workflow
+
+### Running Tests
+Always verify your changes before submitting:
+
+```bash
+# Verify build
+go build ./...
+
+# Run all unit and race detector tests
+go test -count=1 -race ./...
+```
+
+### Adding New Schemas or Contract Packs
+When introducing a new contract pack or expanding an existing contract:
+1. **Consult `SPEC-DRIVEN-DEVELOPMENT.md`** for schema evolution and backward compatibility rules.
+2. Ensure all fields are additive and optional if modifying existing structs.
+3. Write comprehensive unit tests including negative validation cases and serialization round-trips.
+4. Verify that no private data or local absolute paths are leaked into error messages.
