@@ -53,6 +53,11 @@ func TestReleaseManifestIsDependencyManifestWithoutSecrets(t *testing.T) {
 	if manifest.Module != "github.com/b2bautopilot/xx-federation-contracts" {
 		t.Fatalf("module = %q", manifest.Module)
 	}
+	for _, dep := range manifest.Dependencies {
+		if strings.HasPrefix(dep.Replace, ".") || strings.HasPrefix(dep.Replace, "/") {
+			t.Fatalf("dependency %s replace leaks filesystem path: %q", dep.Path, dep.Replace)
+		}
+	}
 	for i := 1; i < len(manifest.Dependencies); i++ {
 		if manifest.Dependencies[i-1].Path > manifest.Dependencies[i].Path {
 			t.Fatalf("dependencies are not sorted: %q before %q",
