@@ -4,9 +4,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"path/filepath"
 	"runtime"
 	"runtime/debug"
 	"sort"
+	"strings"
 )
 
 const (
@@ -53,12 +55,7 @@ func BuildManifest(component string) Manifest {
 		manifest.Module = info.Main.Path
 		for _, dep := range info.Deps {
 			entry := Dependency{Path: dep.Path, Version: dep.Version}
-			if dep.Replace != nil {
-				entry.Replace = dep.Replace.Path
-				if dep.Replace.Version != "" {
-					entry.Replace += "@" + dep.Replace.Version
-				}
-			}
+			entry.Replace = publicReplacement(dep.Replace)
 			manifest.Dependencies = append(manifest.Dependencies, entry)
 		}
 	}
@@ -66,6 +63,20 @@ func BuildManifest(component string) Manifest {
 		return manifest.Dependencies[i].Path < manifest.Dependencies[j].Path
 	})
 	return manifest
+}
+
+// publicReplacement omits filesystem-only module replacements from release
+// evidence. Go identifies these with a local path and either an empty or
+// "(devel)" version; exposing that path would leak checkout topology into an
+// otherwise portable manifest. Versioned module replacements remain useful
+// public provenance.
+func publicReplacement(replacement *debug.Module) string {
+	if replacement == nil || replacement.Version == "" || replacement.Version == "(devel)" ||
+		filepath.IsAbs(replacement.Path) || strings.HasPrefix(replacement.Path, "./") ||
+		strings.HasPrefix(replacement.Path, "../") {
+		return ""
+	}
+	return replacement.Path + "@" + replacement.Version
 }
 
 func WriteVersion(out io.Writer, component string) error {
