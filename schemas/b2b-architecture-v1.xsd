@@ -6,7 +6,7 @@
   targetNamespace="urn:b2b:architecture:1.0"
   elementFormDefault="qualified"
   attributeFormDefault="unqualified"
-  version="1.1.0">
+  version="1.2.0">
 
   <xs:import namespace="urn:baylife:system-specification:4.0" schemaLocation="system-specification-v4.xsd"/>
 
@@ -72,6 +72,9 @@
           <xs:element name="userspace-engine" type="bay:nonBlankStringType"/>
           <xs:element name="socket-path" type="bay:nonBlankStringType"/>
           <xs:element name="gossip-ttl-seconds" type="xs:positiveInteger"/>
+          <xs:element name="supported-engines" type="bay:nonBlankStringType" minOccurs="0"/>
+          <xs:element name="gossip-port" type="xs:positiveInteger" minOccurs="0"/>
+          <xs:element name="fabric-port" type="xs:positiveInteger" minOccurs="0"/>
         </xs:sequence>
       </xs:extension>
     </xs:complexContent>

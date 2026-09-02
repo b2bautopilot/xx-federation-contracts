@@ -495,9 +495,12 @@
     <xs:sequence>
       <xs:element name="summary" type="bay:nonBlankStringType"/>
     </xs:sequence>
+    <xs:attribute name="id" type="xs:ID"/>
     <xs:attribute name="number" type="bay:revisionNumberType" use="required"/>
     <xs:attribute name="actor-ref" type="xs:IDREF" use="required"/>
     <xs:attribute name="created-at" type="xs:dateTime" use="required"/>
+    <xs:attribute name="sealed-at" type="xs:dateTime"/>
+    <xs:attribute name="previous-revision-ref" type="xs:IDREF"/>
     <xs:attribute name="status" type="bay:statusType" use="required"/>
     <xs:attribute name="semantic-hash" type="bay:nonBlankStringType" use="required"/>
     <xs:attribute name="change-set-ref" type="xs:IDREF"/>

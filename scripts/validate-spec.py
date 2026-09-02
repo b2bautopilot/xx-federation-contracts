@@ -1,5 +1,15 @@
 #!/usr/bin/env python3
-import os, sys, subprocess, hashlib, xml.etree.ElementTree as ET
+import hashlib
+import os
+import subprocess
+import sys
+import tempfile
+import xml.etree.ElementTree as ET
+
+
+declared_hashes = {
+    "schemas/b2b-architecture-v1.xsd": "f7ea6b0703bd2b737abe0ba03be39514f06b19a091e97bf30346d33761ddf32c",
+}
 
 def sha256_file(filepath):
     h = hashlib.sha256()
@@ -7,6 +17,38 @@ def sha256_file(filepath):
         while chunk := f.read(8192):
             h.update(chunk)
     return h.hexdigest()
+
+
+def semantic_hash(filepath):
+    """Hash the canonical spec content while excluding its self-referential history."""
+    ET.register_namespace("bay", "urn:baylife:system-specification:4.0")
+    ET.register_namespace("b2b", "urn:b2b:architecture:1.0")
+    ET.register_namespace("xsi", "http://www.w3.org/2001/XMLSchema-instance")
+
+    tree = ET.parse(filepath)
+    root = tree.getroot()
+    history = root.find("{urn:baylife:system-specification:4.0}history")
+    if history is None:
+        raise ValueError("specification is missing bay:history")
+
+    children = list(root)
+    history_index = children.index(history)
+    history_tail = history.tail or ""
+    root.remove(history)
+    if history_index == 0:
+        root.text = (root.text or "") + history_tail
+    else:
+        children[history_index - 1].tail = (children[history_index - 1].tail or "") + history_tail
+
+    with tempfile.NamedTemporaryFile(mode="wb", suffix=".xml") as canonical_input:
+        tree.write(canonical_input, encoding="UTF-8", xml_declaration=True)
+        canonical_input.flush()
+        result = subprocess.run(
+            ["xmllint", "--c14n", canonical_input.name],
+            check=True,
+            capture_output=True,
+        )
+    return hashlib.sha256(result.stdout).hexdigest()
 
 def validate():
     root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -66,8 +108,13 @@ def validate():
     ns = {"bay": "urn:baylife:system-specification:4.0"}
     for art in root.findall(".//bay:artifact", ns):
         art_id = art.attrib.get("id")
-        art_path = os.path.join(root_dir, art.attrib.get("path"))
+        relative_path = art.attrib.get("path")
+        art_path = os.path.join(root_dir, relative_path)
         expected_sha = art.attrib.get("sha256")
+        pinned_sha = declared_hashes.get(relative_path)
+        if pinned_sha and expected_sha != pinned_sha:
+            print(f"[FAIL] XML artifact declaration for {art_id} does not match validator declared_hashes", file=sys.stderr)
+            return 1
         if os.path.exists(art_path):
             actual_sha = sha256_file(art_path)
             if actual_sha != expected_sha:
@@ -79,9 +126,18 @@ def validate():
 
     # 5. Semantic Hash Verification
     print("[4/4] Verifying sealed revision semantic hash...")
-    for rev in root.findall(".//bay:revision", ns):
+    revisions = root.findall(".//bay:revision", ns)
+    calculated_hash = semantic_hash(spec_xml)
+    latest_revision = max(revisions, key=lambda rev: int(rev.attrib["number"]))
+    for rev in revisions:
         rev_num = rev.attrib.get("number")
         sem_hash = rev.attrib.get("semantic-hash")
+        if rev is latest_revision and sem_hash != f"sha256:{calculated_hash}":
+            print(
+                f"[FAIL] Revision {rev_num} semantic-hash mismatch: expected sha256:{calculated_hash}, got {sem_hash}",
+                file=sys.stderr,
+            )
+            return 1
         print(f"      --> PASS: Revision {rev_num} sealed with semantic-hash {sem_hash[:20]}...")
 
     print("=================================================================")
