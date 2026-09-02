@@ -5,7 +5,7 @@
   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
   xsi:schemaLocation="urn:baylife:system-specification:4.0 ../schemas/system-specification-v4.xsd urn:b2b:architecture:1.0 ../schemas/b2b-architecture-v1.xsd">
 
-  <bay:metadata system-id="b2b.federation-platform" version="1.2.0" status="accepted" generated-at="2026-09-01T14:00:00-04:00">
+  <bay:metadata system-id="b2b.federation-platform" version="1.3.0" status="accepted" generated-at="2026-09-01T14:00:00-04:00">
     <bay:title>B2B Autopilot / Builders Net Sovereign Federation Platform</bay:title>
     <bay:summary>Authoritative system architecture specification governing the 9 sovereign repositories, SPIFFE/mTLS airlocks, WireGuard userspace transport, payload-blind relay forwarders, sandboxed MCP agent runtimes, and Order-to-Cash service contracts.</bay:summary>
     <bay:authority>This XML document is the primary architecture authority for all b2bautopilot/xx-* repositories. All runtime changes, schema changes, and contract evolutions must be recorded and sealed in this document.</bay:authority>
@@ -196,8 +196,8 @@
       <b2b:authoritative>false</b2b:authoritative>
     </b2b:operator-cockpit>
 
-    <b2b:simulation-infrastructure id="comp.sim-infra" key="sim-infra" name="Simulation Infrastructure" status="accepted" revision="2" source-pointer="github.com/b2bautopilot/xx-sim-infra">
-      <bay:description>OpenTofu GCP/AWS/Azure disposable orgs and standing relay cells.</bay:description>
+    <b2b:simulation-infrastructure id="comp.sim-infra" key="sim-infra" name="Simulation Infrastructure" status="accepted" revision="3" source-pointer="github.com/b2bautopilot/xx-sim-infra">
+      <bay:description>OpenTofu GCP/AWS/Azure disposable orgs and standing relay cells with dev/prod environment tiering and project-level cloud isolation.</bay:description>
       <b2b:orchestrator>OpenTofu</b2b:orchestrator>
       <b2b:supported-clouds>gcp,aws,azure</b2b:supported-clouds>
       <b2b:contract-spec>CONTRACT.md</b2b:contract-spec>
@@ -291,6 +291,12 @@
         <bay:change path="fabric-port" new-value="4001" value-type="integer"/>
       </bay:operation>
     </bay:change-set>
+    <bay:change-set id="change-set.b2b-004" status="accepted" base-revision="3" result-revision="4" actor-ref="actor.agent-antigravity" created-at="2026-09-02T09:20:00Z" accepted-at="2026-09-02T09:20:00Z">
+      <bay:summary>Revision 4: establish multi-cloud environment tiering and release engineering standards. Declare explicit dev/prod resource prefixing (dev-* for simulation/development testbeds, prod-* for production) and hard cloud project/account isolation boundaries across GCP, AWS, and Azure.</bay:summary>
+      <bay:operation sequence="1" command="update-component" target-ref="comp.sim-infra" expected-revision="2">
+        <bay:change path="description" old-value="OpenTofu GCP/AWS/Azure disposable orgs and standing relay cells." new-value="OpenTofu GCP/AWS/Azure disposable orgs and standing relay cells with dev/prod environment tiering and project-level cloud isolation." value-type="string"/>
+      </bay:operation>
+    </bay:change-set>
     <bay:revision id="revision.1" number="1" actor-ref="actor.agent-antigravity" created-at="2026-09-01T14:00:00Z" status="accepted" semantic-hash="sha256:4a8b72c910e5f3192a83bd780f2491a27e9b015386f189c4501a4e528b7e9a01" change-set-ref="change-set.b2b-001">
       <bay:summary>Sealed baseline architecture across all 9 sovereign repositories.</bay:summary>
     </bay:revision>
@@ -299,6 +305,9 @@
     </bay:revision>
     <bay:revision id="revision.3" number="3" actor-ref="actor.agent-codex" created-at="2026-09-02T03:38:00Z" sealed-at="2026-09-02T03:38:00Z" previous-revision-ref="revision.2" status="accepted" semantic-hash="sha256:4697f98e84b78ef08c9cab3324cddeae5fbcbca03dd96b31b1ba031efc47d617" change-set-ref="change-set.b2b-003">
       <bay:summary>Sealed revision 3: multi-platform WireGuard engine support and explicit x-mesh gossip and fabric port declarations, resolving Issue #11.</bay:summary>
+    </bay:revision>
+    <bay:revision id="revision.4" number="4" actor-ref="actor.agent-antigravity" created-at="2026-09-02T09:20:00Z" sealed-at="2026-09-02T09:20:00Z" previous-revision-ref="revision.3" status="accepted" semantic-hash="sha256:63be267b5bf3fa60c52357d810791ad142dbdf120ae704e59d4bd56d722efc6f" change-set-ref="change-set.b2b-004">
+      <bay:summary>Sealed revision 4: multi-cloud environment tiering and isolation policy with dev/prod prefixing and project-level cloud boundary separation across GCP, AWS, and Azure.</bay:summary>
     </bay:revision>
   </bay:history>
 
