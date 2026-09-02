@@ -5,7 +5,7 @@
   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
   xsi:schemaLocation="urn:baylife:system-specification:4.0 ../schemas/system-specification-v4.xsd urn:b2b:architecture:1.0 ../schemas/b2b-architecture-v1.xsd">
 
-  <bay:metadata system-id="b2b.federation-platform" version="1.1.0" status="accepted" generated-at="2026-09-01T14:00:00-04:00">
+  <bay:metadata system-id="b2b.federation-platform" version="1.2.0" status="accepted" generated-at="2026-09-01T14:00:00-04:00">
     <bay:title>B2B Autopilot / Builders Net Sovereign Federation Platform</bay:title>
     <bay:summary>Authoritative system architecture specification governing the 9 sovereign repositories, SPIFFE/mTLS airlocks, WireGuard userspace transport, payload-blind relay forwarders, sandboxed MCP agent runtimes, and Order-to-Cash service contracts.</bay:summary>
     <bay:authority>This XML document is the primary architecture authority for all b2bautopilot/xx-* repositories. All runtime changes, schema changes, and contract evolutions must be recorded and sealed in this document.</bay:authority>
@@ -142,11 +142,14 @@
       <b2b:lifecycle-stages>rfq,quote,purchase_order,order_confirmation,shipment_notice,invoice,payment_settlement</b2b:lifecycle-stages>
     </b2b:business-service-contract>
 
-    <b2b:userspace-wireguard-mesh id="comp.x-mesh" key="x-mesh" name="x-mesh WireGuard Substrate" status="accepted" revision="2" source-pointer="github.com/b2bautopilot/xx-mesh-net">
-      <bay:description>Standalone userspace WireGuard mesh daemon with UDS control socket.</bay:description>
+    <b2b:userspace-wireguard-mesh id="comp.x-mesh" key="x-mesh" name="x-mesh WireGuard Substrate" status="accepted" revision="3" source-pointer="github.com/b2bautopilot/xx-mesh-net">
+      <bay:description>Standalone WireGuard mesh daemon supporting kernel WireGuard on Linux, WireGuardNT on Windows, and wireguard-go on macOS/iOS with UDS control socket.</bay:description>
       <b2b:userspace-engine>wireguard-go</b2b:userspace-engine>
       <b2b:socket-path>/run/x-mesh/sock</b2b:socket-path>
       <b2b:gossip-ttl-seconds>30</b2b:gossip-ttl-seconds>
+      <b2b:supported-engines>kernel_wireguard,wireguard_nt,wireguard_go</b2b:supported-engines>
+      <b2b:gossip-port>8442</b2b:gossip-port>
+      <b2b:fabric-port>4001</b2b:fabric-port>
     </b2b:userspace-wireguard-mesh>
 
     <b2b:payload-blind-relay id="comp.federation-relay" key="federation-relay" name="Payload-Blind Relay Cells" status="accepted" revision="2" source-pointer="github.com/b2bautopilot/xx-federation-relay">
@@ -279,18 +282,30 @@
         <bay:change path="sha256" old-value="7a76e02eaceffef8058faa8ca01601f2e858b8310796e7751e9ec1f7bb006949" new-value="537a24dcb7812d92b699720ed50eb32a208f44476154e36d1b9550c77a698984" value-type="string"/>
       </bay:operation>
     </bay:change-set>
-    <bay:revision number="1" actor-ref="actor.agent-antigravity" created-at="2026-09-01T14:00:00Z" status="accepted" semantic-hash="sha256:4a8b72c910e5f3192a83bd780f2491a27e9b015386f189c4501a4e528b7e9a01" change-set-ref="change-set.b2b-001">
+    <bay:change-set id="change-set.b2b-003" status="accepted" base-revision="2" result-revision="3" actor-ref="actor.agent-codex" created-at="2026-09-02T03:38:00Z" accepted-at="2026-09-02T03:38:00Z">
+      <bay:summary>Resolve Issue #11 by aligning x-mesh with multi-platform WireGuard engines and declaring its gossip and fabric ports.</bay:summary>
+      <bay:operation sequence="1" command="update-component" target-ref="comp.x-mesh" expected-revision="2">
+        <bay:change path="description" old-value="Standalone userspace WireGuard mesh daemon with UDS control socket." new-value="Standalone WireGuard mesh daemon supporting kernel WireGuard on Linux, WireGuardNT on Windows, and wireguard-go on macOS/iOS with UDS control socket." value-type="string"/>
+        <bay:change path="supported-engines" new-value="kernel_wireguard,wireguard_nt,wireguard_go" value-type="string"/>
+        <bay:change path="gossip-port" new-value="8442" value-type="integer"/>
+        <bay:change path="fabric-port" new-value="4001" value-type="integer"/>
+      </bay:operation>
+    </bay:change-set>
+    <bay:revision id="revision.1" number="1" actor-ref="actor.agent-antigravity" created-at="2026-09-01T14:00:00Z" status="accepted" semantic-hash="sha256:4a8b72c910e5f3192a83bd780f2491a27e9b015386f189c4501a4e528b7e9a01" change-set-ref="change-set.b2b-001">
       <bay:summary>Sealed baseline architecture across all 9 sovereign repositories.</bay:summary>
     </bay:revision>
-    <bay:revision number="2" actor-ref="actor.agent-claude" created-at="2026-09-01T21:27:14Z" status="accepted" semantic-hash="sha256:32370823aace475254951ccc05e31ca0ef66e024e6e9823977cfd79fb0e50ae4" change-set-ref="change-set.b2b-002">
+    <bay:revision id="revision.2" number="2" actor-ref="actor.agent-claude" created-at="2026-09-01T21:27:14Z" status="accepted" semantic-hash="sha256:32370823aace475254951ccc05e31ca0ef66e024e6e9823977cfd79fb0e50ae4" change-set-ref="change-set.b2b-002">
       <bay:summary>Sealed revision 2: sovereign repository source-pointers for all 9 components and agent runtime alignment (sandbox set and typed metadata-endpoint deny). The semantic-hash is the SHA-256 of the xmllint --c14n canonical form of this document with the bay:history element removed (its tail whitespace retained), so the hash covers every sealed section without self-reference.</bay:summary>
+    </bay:revision>
+    <bay:revision id="revision.3" number="3" actor-ref="actor.agent-codex" created-at="2026-09-02T03:38:00Z" sealed-at="2026-09-02T03:38:00Z" previous-revision-ref="revision.2" status="accepted" semantic-hash="sha256:4697f98e84b78ef08c9cab3324cddeae5fbcbca03dd96b31b1ba031efc47d617" change-set-ref="change-set.b2b-003">
+      <bay:summary>Sealed revision 3: multi-platform WireGuard engine support and explicit x-mesh gossip and fabric port declarations, resolving Issue #11.</bay:summary>
     </bay:revision>
   </bay:history>
 
   <bay:artifacts>
     <bay:artifact id="artifact.contracts.order-to-cash.proto" path="api/proto/builders/v1/order_to_cash.proto" media-type="text/x-protobuf" encoding="text" sha256="e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855" role="contract">Order to Cash v1 Protocol Buffer IDL</bay:artifact>
-    <bay:artifact id="artifact.schema.system-specification" path="schemas/system-specification-v4.xsd" media-type="application/xml" encoding="text" sha256="32363a86433070d5143202b226070afa4788af2fb353a9273b963fe28f4a930e" role="schema">Baylife Meta-Schema v4</bay:artifact>
-    <bay:artifact id="artifact.schema.b2b-architecture" path="schemas/b2b-architecture-v1.xsd" media-type="application/xml" encoding="text" sha256="537a24dcb7812d92b699720ed50eb32a208f44476154e36d1b9550c77a698984" role="schema">B2B Architecture Domain Profile XSD</bay:artifact>
+    <bay:artifact id="artifact.schema.system-specification" path="schemas/system-specification-v4.xsd" media-type="application/xml" encoding="text" sha256="efb60a221e950a9eb74f705961047055c2cfa40cc269ec6aac8d9131fd45b197" role="schema">Baylife Meta-Schema v4</bay:artifact>
+    <bay:artifact id="artifact.schema.b2b-architecture" path="schemas/b2b-architecture-v1.xsd" media-type="application/xml" encoding="text" sha256="f7ea6b0703bd2b737abe0ba03be39514f06b19a091e97bf30346d33761ddf32c" role="schema">B2B Architecture Domain Profile XSD</bay:artifact>
   </bay:artifacts>
 
   <bay:verification>
