@@ -5,7 +5,7 @@
   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
   xsi:schemaLocation="urn:baylife:system-specification:4.0 ../schemas/system-specification-v4.xsd urn:b2b:architecture:1.0 ../schemas/b2b-architecture-v1.xsd">
 
-  <bay:metadata system-id="b2b.federation-platform" version="1.5.0" status="accepted" generated-at="2026-09-03T15:40:00-04:00">
+  <bay:metadata system-id="b2b.federation-platform" version="1.6.0" status="accepted" generated-at="2026-09-03T15:40:00-04:00">
     <bay:title>B2B Autopilot / Builders Net Sovereign Federation Platform</bay:title>
     <bay:summary>Authoritative system architecture specification governing the 9 sovereign repositories, SPIFFE/mTLS airlocks, WireGuard userspace transport, payload-blind relay forwarders, sandboxed MCP agent runtimes, and Order-to-Cash service contracts.</bay:summary>
     <bay:authority>This XML document is the primary architecture authority for all b2bautopilot/xx-* repositories. All runtime changes, schema changes, and contract evolutions must be recorded and sealed in this document.</bay:authority>
@@ -210,8 +210,23 @@
   </bay:components>
 
   <bay:relationships>
-    <b2b:federation-transport-link id="rel.gateway-dials-relay" source-ref="comp.federation-gateway" target-ref="comp.federation-relay" status="accepted" revision="2" source-pointer="github.com/b2bautopilot/xx-federation-contracts/contracts/relaywire">
-      <bay:description>Airlock gateways dial outbound to standing relay cells over circuit-relay-v2; the rendezvous control frame, the transport identity it carries, the relay-client certificate plane and the blind rendezvous key are the contracts both ends implement.</bay:description>
+    <b2b:federation-transport-link id="rel.gateway-dials-relay" source-ref="comp.federation-gateway" target-ref="comp.federation-relay" status="accepted" revision="3" source-pointer="github.com/b2bautopilot/xx-federation-contracts/contracts/relaywire">
+      <bay:description>Airlock gateways dial outbound to standing relay cells over circuit-relay-v2; the rendezvous control frame, the transport identity it carries, the relay-client certificate plane and the blind rendezvous key are the contracts both ends implement. The fabric keeps N-1 availability (loss of any one provider cell leaves an otherwise authorized exchange unblocked while two healthy cells stay reachable), dials ordered relay candidates under pre-existing bounded failover, and admits only proven end-to-end circuit evidence as circuit-relay-v2 success.</bay:description>
+      <bay:evidence key="n-minus-one-availability" kind="wire-contract" artifact-ref="artifact.contracts.relayavailability">
+        <bay:description>Three standing provider cells (GCP, AWS, Azure); loss of any one cell must not prevent an otherwise authorized exchange while two healthy cells remain reachable. Authorization stays fail-closed: unauthorized exchanges never proceed regardless of cell health.</bay:description>
+      </bay:evidence>
+      <bay:evidence key="ordered-candidate-failover" kind="wire-contract" artifact-ref="artifact.contracts.relayavailability">
+        <bay:description>Gateways and x-mesh hold up to three ordered signed relay candidates, walk them in authority order, replace unhealthy reservations inside their pre-existing bounded retry, and preserve unrelated healthy streams when one relay dial fails. This codifies existing downstream semantics; it defines no new failover algorithm.</bay:description>
+      </bay:evidence>
+      <bay:evidence key="relay-readiness-levels" kind="wire-contract" artifact-ref="artifact.contracts.relayavailability">
+        <bay:description>Four distinct ordered readiness levels, each necessary but insufficient for the next: l4_reachable (TCP connect only), relay_ready (local relay process readiness), reservation_ready (authenticated unexpired reservation), circuit_proven (completed end-to-end circuit with the inner identity pin verified).</bay:description>
+      </bay:evidence>
+      <bay:evidence key="circuit-evidence-rule" kind="wire-contract" artifact-ref="artifact.contracts.relayavailability">
+        <bay:description>Only circuit_proven satisfies circuit-relay-v2 readiness. Bare TCP connect — including reachability of legacy TLS forwarders — is never success evidence; presentation and CI must not claim circuit-relay-v2 success from TCP reachability alone.</bay:description>
+      </bay:evidence>
+      <bay:evidence key="downstream-consumers" kind="wire-contract" artifact-ref="artifact.contracts.relayavailability">
+        <bay:description>Implementation consumers, identified without prescribing their internals: xx-mesh-net (candidate reservation, bounded failover, circuit dialing), xx-federation-gateway (ordered dialing and evidence presentation), xx-federation-relay (local readiness and reservation truth), xx-sim-infra (two-cell survivability and readiness evidence; container topology unchanged: AWS Fargate only, Azure containers only, GCP serverless org services), xx-builders-portal (readiness presentation shows circuit evidence, never TCP-only success).</bay:description>
+      </bay:evidence>
       <bay:evidence key="relaywire-control-frame" kind="wire-contract" artifact-ref="artifact.contracts.relaywire">
         <bay:description>Length-prefixed JSON register/submit/deliver/established/error frames exchanged on the outer mTLS connection before the payload-blind splice.</bay:description>
       </bay:evidence>
@@ -466,6 +481,25 @@
         <bay:change path="revision" old-value="1" new-value="2" value-type="integer"/>
       </bay:operation>
     </bay:change-set>
+    <bay:change-set id="change-set.b2b-008" status="accepted" base-revision="7" result-revision="8" actor-ref="actor.agent-muse" created-at="2026-09-03T21:00:00Z" accepted-at="2026-09-03T21:00:00Z">
+      <bay:summary>Revision 8 (issue #15): define the N-1 relay-cell availability and machine-verifiable readiness contract as one atomic unit. Adds contracts/relayavailability (artifact.contracts.relayavailability): 3 standing provider cells with a 2-healthy minimum so loss of any one cell leaves an otherwise authorized exchange unblocked; up to 3 ordered signed relay candidates walked in authority order with unhealthy reservations replaced inside pre-existing bounded retry (codifies existing xx-mesh-net semantics, no new algorithm); four ordered readiness levels (l4_reachable, relay_ready, reservation_ready, circuit_proven); only circuit_proven satisfies circuit-relay-v2 readiness so bare TCP connect is never success evidence; fail-closed authorization and candidate selection throughout. Attaches five evidence entries to rel.gateway-dials-relay (revision 2 to 3) and identifies downstream consumers xx-mesh-net, xx-federation-gateway, xx-federation-relay, xx-sim-infra and xx-builders-portal without prescribing their internals. No XSD change required (evidence plus contract artifact under the existing model); no proto projection change; sim-infra pure-container fields untouched (AWS Fargate only, Azure containers only, GCP serverless org services); no cloud, DNS, certificate, credential or deployment action. Bumps metadata version to 1.6.0. All artifact digests are real SHA-256 values, no placeholders.</bay:summary>
+      <bay:operation sequence="1" command="create-artifact" target-ref="artifact.contracts.relayavailability" expected-revision="0">
+        <bay:change path="path" new-value="contracts/relayavailability/availability.go" value-type="string"/>
+        <bay:change path="media-type" new-value="text/x-go" value-type="string"/>
+        <bay:change path="encoding" new-value="text" value-type="string"/>
+        <bay:change path="sha256" new-value="f7868c1d3db0093fd7dc1760715480041418ba24a2085f5fdb2fe9175f7c1a1a" value-type="string"/>
+        <bay:change path="role" new-value="contract" value-type="string"/>
+      </bay:operation>
+      <bay:operation sequence="2" command="update-relationship" target-ref="rel.gateway-dials-relay" expected-revision="2">
+        <bay:change path="description" old-value="Airlock gateways dial outbound to standing relay cells over circuit-relay-v2; the rendezvous control frame, the transport identity it carries, the relay-client certificate plane and the blind rendezvous key are the contracts both ends implement." new-value="Airlock gateways dial outbound to standing relay cells over circuit-relay-v2; the rendezvous control frame, the transport identity it carries, the relay-client certificate plane and the blind rendezvous key are the contracts both ends implement. The fabric keeps N-1 availability (loss of any one provider cell leaves an otherwise authorized exchange unblocked while two healthy cells stay reachable), dials ordered relay candidates under pre-existing bounded failover, and admits only proven end-to-end circuit evidence as circuit-relay-v2 success." value-type="string"/>
+        <bay:change path="evidence[n-minus-one-availability]" new-value="artifact.contracts.relayavailability" value-type="string"/>
+        <bay:change path="evidence[ordered-candidate-failover]" new-value="artifact.contracts.relayavailability" value-type="string"/>
+        <bay:change path="evidence[relay-readiness-levels]" new-value="artifact.contracts.relayavailability" value-type="string"/>
+        <bay:change path="evidence[circuit-evidence-rule]" new-value="artifact.contracts.relayavailability" value-type="string"/>
+        <bay:change path="evidence[downstream-consumers]" new-value="artifact.contracts.relayavailability" value-type="string"/>
+        <bay:change path="revision" old-value="2" new-value="3" value-type="integer"/>
+      </bay:operation>
+    </bay:change-set>
     <bay:revision id="revision.1" number="1" actor-ref="actor.agent-antigravity" created-at="2026-09-01T14:00:00Z" status="accepted" semantic-hash="sha256:4a8b72c910e5f3192a83bd780f2491a27e9b015386f189c4501a4e528b7e9a01" change-set-ref="change-set.b2b-001">
       <bay:summary>Sealed baseline architecture across all 9 sovereign repositories.</bay:summary>
     </bay:revision>
@@ -487,6 +521,9 @@
     <bay:revision id="revision.7" number="7" actor-ref="actor.agent-muse" created-at="2026-09-03T19:40:00Z" sealed-at="2026-09-03T19:40:00Z" previous-revision-ref="revision.6" status="accepted" semantic-hash="sha256:ad140a744016f37746ef66a83df549c93ada74084a97e23bd9ec3d685103cee3" change-set-ref="change-set.b2b-007">
       <bay:summary>Sealed revision 7: contract artifacts and relationship evidence for the gateway-facing wire and facade types (issue #3 item 3); metadata 1.5.0. Semantic-hash computed as for revision 2 (SHA-256 of the xmllint --c14n canonical form with bay:history removed).</bay:summary>
     </bay:revision>
+    <bay:revision id="revision.8" number="8" actor-ref="actor.agent-muse" created-at="2026-09-03T21:00:00Z" sealed-at="2026-09-03T21:00:00Z" previous-revision-ref="revision.7" status="accepted" semantic-hash="sha256:ee54f4ffe923f308bf61c42979d399aeab2daa5e4ba42eae0cb34535f34c7e71" change-set-ref="change-set.b2b-008">
+      <bay:summary>Sealed revision 8: N-1 relay-cell availability and machine-verifiable readiness contract with ordered candidate failover and circuit-only success evidence (issue #15); metadata 1.6.0. Semantic-hash computed as for revision 2 (SHA-256 of the xmllint --c14n canonical form with bay:history removed).</bay:summary>
+    </bay:revision>
   </bay:history>
 
   <bay:artifacts>
@@ -504,6 +541,7 @@
     <bay:artifact id="artifact.contracts.gatewaycert-planes" path="gatewaycert/plane.go" media-type="text/x-go" encoding="text" sha256="f81b5edf5b87e2a787eac6eef7b1d22b7901fb3222b7903fdac05d4d9f516d38" role="contract">Certificate plane vocabulary, SPIFFE namespace builders and plane verification for gateway, relay-client, relay-cell and backplane identities. External federation planes use their own trust domains, never the internal builders-net domain: relay-client spiffe://relay.b2bautopilot.com (ClientAuth), gateway transport-server spiffe://gateway-transport.b2bautopilot.com (ServerAuth, DNS-SAN-bound), gateway business-facade spiffe://gateway.b2bautopilot.com (ClientAuth), relay-cell spiffe://relay-cell.b2bautopilot.com roles backplane/backplane-server/server (ClientAuth/ServerAuth, server roles DNS-SAN-bound, wildcards rejected)</bay:artifact>
     <bay:artifact id="artifact.contracts.gatewaycert-provider" path="gatewaycert/provider.go" media-type="text/x-go" encoding="text" sha256="b0f62df9af41596ffef1b248e92c06f40b183538a939e2d43a9003e425cf9cd3" role="contract">Gateway certificate provider contract: issue, rotate and revoke requests, CSR parsing and identity evidence</bay:artifact>
     <bay:artifact id="artifact.contracts.gatewaypool" path="gatewaypool/gatewaypool.go" media-type="text/x-go" encoding="text" sha256="fdd68bb440d70652bb04cb36bd71cac38b1f653ff44927b53c92151239403e5e" role="contract">Gateway pool coordinator lease vocabulary and liveness rule</bay:artifact>
+    <bay:artifact id="artifact.contracts.relayavailability" path="contracts/relayavailability/availability.go" media-type="text/x-go" encoding="text" sha256="f7868c1d3db0093fd7dc1760715480041418ba24a2085f5fdb2fe9175f7c1a1a" role="contract">N-1 relay-cell availability, ordered candidate failover, four-level relay readiness and circuit-evidence rule for gateway/x-mesh circuit dialing</bay:artifact>
     <bay:artifact id="artifact.schema.system-specification" path="schemas/system-specification-v4.xsd" media-type="application/xml" encoding="text" sha256="efb60a221e950a9eb74f705961047055c2cfa40cc269ec6aac8d9131fd45b197" role="schema">Baylife Meta-Schema v4</bay:artifact>
     <bay:artifact id="artifact.schema.b2b-architecture" path="schemas/b2b-architecture-v1.xsd" media-type="application/xml" encoding="text" sha256="76d354a7c601d9066fc8ab8ea4ab304719ef53db5751efc60a2a725de327fb9e" role="schema">B2B Architecture Domain Profile XSD</bay:artifact>
   </bay:artifacts>
