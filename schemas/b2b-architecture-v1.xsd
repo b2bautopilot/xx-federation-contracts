@@ -126,6 +126,10 @@
           <xs:element name="orchestrator" type="bay:nonBlankStringType"/>
           <xs:element name="supported-clouds" type="bay:nonBlankStringType"/>
           <xs:element name="contract-spec" type="bay:nonBlankStringType"/>
+          <!-- Invariant: pure container runtimes only; no VMs permitted (GCP Cloud Run, AWS ECS Fargate, Azure Container Apps) -->
+          <xs:element name="pure-container-topology" type="xs:boolean" minOccurs="0"/>
+          <xs:element name="vm-prohibition" type="xs:boolean" minOccurs="0"/>
+          <xs:element name="builder-container-count-per-org" type="xs:positiveInteger" minOccurs="0"/>
         </xs:sequence>
       </xs:extension>
     </xs:complexContent>

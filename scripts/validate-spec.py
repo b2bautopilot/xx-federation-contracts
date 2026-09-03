@@ -8,7 +8,7 @@ import xml.etree.ElementTree as ET
 
 
 declared_hashes = {
-    "schemas/b2b-architecture-v1.xsd": "f7ea6b0703bd2b737abe0ba03be39514f06b19a091e97bf30346d33761ddf32c",
+    "schemas/b2b-architecture-v1.xsd": "76d354a7c601d9066fc8ab8ea4ab304719ef53db5751efc60a2a725de327fb9e",
 }
 
 def sha256_file(filepath):

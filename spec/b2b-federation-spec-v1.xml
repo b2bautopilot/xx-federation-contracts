@@ -197,11 +197,14 @@
       <b2b:authoritative>false</b2b:authoritative>
     </b2b:operator-cockpit>
 
-    <b2b:simulation-infrastructure id="comp.sim-infra" key="sim-infra" name="Simulation Infrastructure" status="accepted" revision="3" source-pointer="github.com/b2bautopilot/xx-sim-infra">
-      <bay:description>OpenTofu GCP/AWS/Azure 100% container-native serverless infrastructure (Cloud Run, ECS Fargate, Azure Container Apps, Cloud SQL/RDS/Flexible Server) with dev/prod tiering.</bay:description>
+    <b2b:simulation-infrastructure id="comp.sim-infra" key="sim-infra" name="Simulation Infrastructure" status="accepted" revision="4" source-pointer="github.com/b2bautopilot/xx-sim-infra">
+      <bay:description>OpenTofu GCP/AWS/Azure 100% container-native serverless infrastructure (Cloud Run, ECS Fargate, Azure Container Apps, Cloud SQL/RDS/Flexible Server) with zero compute VMs and dev/prod tiering.</bay:description>
       <b2b:orchestrator>OpenTofu</b2b:orchestrator>
       <b2b:supported-clouds>gcp,aws,azure</b2b:supported-clouds>
       <b2b:contract-spec>CONTRACT.md</b2b:contract-spec>
+      <b2b:pure-container-topology>true</b2b:pure-container-topology>
+      <b2b:vm-prohibition>true</b2b:vm-prohibition>
+      <b2b:builder-container-count-per-org>2</b2b:builder-container-count-per-org>
     </b2b:simulation-infrastructure>
   </bay:components>
 
@@ -304,6 +307,14 @@
         <bay:change path="description" old-value="OpenTofu GCP/AWS/Azure disposable orgs and standing relay cells with dev/prod environment tiering and project-level cloud isolation." new-value="OpenTofu GCP/AWS/Azure 100% container-native serverless infrastructure (Cloud Run, ECS Fargate, Azure Container Apps, Cloud SQL/RDS/Flexible Server) with dev/prod tiering." value-type="string"/>
       </bay:operation>
     </bay:change-set>
+    <bay:change-set id="change-set.b2b-006" status="accepted" base-revision="5" result-revision="6" actor-ref="actor.agent-antigravity" created-at="2026-09-03T00:20:00Z" accepted-at="2026-09-03T00:20:00Z">
+      <bay:summary>Revision 6: codify pure container runtime topology and strict VM prohibition across AWS, GCP, and Azure. Mandate AWS ECS Fargate builder1/builder2 services, GCP Cloud Run control/gateway/builder1/builder2 services, and Azure Container Apps parity with zero persistent compute VMs.</bay:summary>
+      <bay:operation sequence="1" command="update-component" target-ref="comp.sim-infra" expected-revision="3">
+        <bay:change path="pure-container-topology" new-value="true" value-type="boolean"/>
+        <bay:change path="vm-prohibition" new-value="true" value-type="boolean"/>
+        <bay:change path="builder-container-count-per-org" new-value="2" value-type="integer"/>
+      </bay:operation>
+    </bay:change-set>
     <bay:revision id="revision.1" number="1" actor-ref="actor.agent-antigravity" created-at="2026-09-01T14:00:00Z" status="accepted" semantic-hash="sha256:4a8b72c910e5f3192a83bd780f2491a27e9b015386f189c4501a4e528b7e9a01" change-set-ref="change-set.b2b-001">
       <bay:summary>Sealed baseline architecture across all 9 sovereign repositories.</bay:summary>
     </bay:revision>
@@ -319,12 +330,15 @@
     <bay:revision id="revision.5" number="5" actor-ref="actor.agent-antigravity" created-at="2026-09-02T09:44:00Z" sealed-at="2026-09-02T09:44:00Z" previous-revision-ref="revision.4" status="accepted" semantic-hash="sha256:36c8a99771d3518f3542bbb14109fc40c7e4556a595b538cfca548a36e381fbb" change-set-ref="change-set.b2b-005">
       <bay:summary>Sealed revision 5: 100% container-native architecture transition across GCP Cloud Run, AWS ECS Fargate, and Azure Container Apps.</bay:summary>
     </bay:revision>
+      <bay:revision id="revision.6" number="6" actor-ref="actor.agent-antigravity" created-at="2026-09-03T00:20:00Z" sealed-at="2026-09-03T00:20:00Z" previous-revision-ref="revision.5" status="accepted" semantic-hash="sha256:74ba5cafc482a38a00a20976d54c05453f7a1322778f6b30d84ffab2b278c2d9" change-set-ref="change-set.b2b-006">
+      <bay:summary>Sealed revision 6: pure container topology invariant (100% ECS Fargate, Cloud Run, Azure Container Apps) and hard VM prohibition across AWS, GCP, and Azure.</bay:summary>
+    </bay:revision>
   </bay:history>
 
   <bay:artifacts>
     <bay:artifact id="artifact.contracts.order-to-cash.proto" path="api/proto/builders/v1/order_to_cash.proto" media-type="text/x-protobuf" encoding="text" sha256="e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855" role="contract">Order to Cash v1 Protocol Buffer IDL</bay:artifact>
     <bay:artifact id="artifact.schema.system-specification" path="schemas/system-specification-v4.xsd" media-type="application/xml" encoding="text" sha256="efb60a221e950a9eb74f705961047055c2cfa40cc269ec6aac8d9131fd45b197" role="schema">Baylife Meta-Schema v4</bay:artifact>
-    <bay:artifact id="artifact.schema.b2b-architecture" path="schemas/b2b-architecture-v1.xsd" media-type="application/xml" encoding="text" sha256="f7ea6b0703bd2b737abe0ba03be39514f06b19a091e97bf30346d33761ddf32c" role="schema">B2B Architecture Domain Profile XSD</bay:artifact>
+    <bay:artifact id="artifact.schema.b2b-architecture" path="schemas/b2b-architecture-v1.xsd" media-type="application/xml" encoding="text" sha256="76d354a7c601d9066fc8ab8ea4ab304719ef53db5751efc60a2a725de327fb9e" role="schema">B2B Architecture Domain Profile XSD</bay:artifact>
   </bay:artifacts>
 
   <bay:verification>
