@@ -57,6 +57,9 @@ graph TD
 | **`keymaterial`** | `github.com/b2bautopilot/xx-federation-contracts/keymaterial` | Ed25519 audit signing, SSH CA providers, short-TTL fabric membership and service access signing keys. |
 | **`release`** | `github.com/b2bautopilot/xx-federation-contracts/release` | Build provenance manifests, acceptance test records, and tamper-evident production release evidence. |
 | **`apperrors`** | `github.com/b2bautopilot/xx-federation-contracts/apperrors` | Unified application error codes, layer annotations, and fail-closed error wrappers. |
+| **`gatewayregistration`** | `github.com/b2bautopilot/xx-federation-contracts/gatewayregistration` | relay-mesh-registration.v0 envelopes, bootstrap intents, local-control authorization, JCS canonicalisation. |
+| **`gatewaycert`** | `github.com/b2bautopilot/xx-federation-contracts/gatewaycert` | Certificate planes, SPIFFE namespace builders, plane verification, provider issue/rotate/revoke contract. |
+| **`gatewaypool`** | `github.com/b2bautopilot/xx-federation-contracts/gatewaypool` | Gateway pool coordinator lease vocabulary and liveness rule. |
 
 ### 1. `contracts`
 The inter-enterprise protocol surface:
@@ -68,6 +71,11 @@ The inter-enterprise protocol surface:
   - `update_shipment_status`
   - `issue_invoice` & `update_payment_status`
 - **`exchange`**: Inter-enterprise gateway exchange protocol (`builders.federation.gateway_exchange.v1`), discovery queries, data channel preflight checks, and session scoping.
+- **`transport`**: Gateway-to-gateway transport identity, policy, negotiation and AES-GCM relay payload sealing.
+- **`relaywire`**: Payload-blind relay rendezvous control frames (length-prefixed JSON).
+- **`federationstate`**: Federation state vocabularies and usability predicates shared by control and gateway.
+- **`orgregistry`**: Deterministic receiver rendezvous ids, blind presence-ref derivation and receiver intake decisions.
+- **`facade`**: Facade vocabulary — outbound exchange states, failure classes, binding matchers, dev gateway headers.
 - **`servicecatalog`**: Partner-visible service registrations, endpoint routing metadata, and schema validations.
 - **`cmd/manifestsign`**: Authority CLI tool for minting and signing canonical manifest keyrings.
 

@@ -1,0 +1,1547 @@
+syntax = "proto3";
+
+package builders.v1;
+
+option go_package = "github.com/b2bautopilot/xyz-b2b/services/builders-net/gen/builders/v1;buildersv1";
+
+import "builders/v1/common.proto";
+
+service FederationAdminService {
+  rpc CreatePartner(CreatePartnerRequest) returns (CreatePartnerResponse);
+  rpc GetPartner(GetPartnerRequest) returns (GetPartnerResponse);
+  rpc ListPartners(ListPartnersRequest) returns (ListPartnersResponse);
+  // RegisterOrganization upserts the calling control's own organization-registry
+  // record (P3 / 120C.2 self-service onboarding). Operator-gated: the org's own
+  // control is the gate. Frictionless input — only tenant_id + org_handle are
+  // required; relay fabric/region are control-defaulted, never client-supplied.
+  rpc RegisterOrganization(RegisterOrganizationRequest) returns (RegisterOrganizationResponse);
+  // RequestDomainVerification mints a proof-of-control challenge for an org's
+  // domain (P3 / 120C.2 slice 2) and advances org_draft -> domain_pending. The
+  // response carries the DNS TXT value the org must publish.
+  rpc RequestDomainVerification(RequestDomainVerificationRequest) returns (RequestDomainVerificationResponse);
+  // VerifyDomain checks the published proof (server-side DNS TXT lookup, never a
+  // client-asserted value) and advances domain_pending -> domain_verified.
+  rpc VerifyDomain(VerifyDomainRequest) returns (VerifyDomainResponse);
+  // SetOrganizationStatus applies a lifecycle transition (revoke / suspend /
+  // flag_for_review) to an org, operator-gated and fail-closed. On a transition to a
+  // suspended/revoked status it releases the org's verified domains back to the pool
+  // so another org can claim them.
+  rpc SetOrganizationStatus(SetOrganizationStatusRequest) returns (SetOrganizationStatusResponse);
+  // ResolveRecipientDomain is the member-authenticated recipient directory
+  // (P3 / 120C.2 slice 3): a sending member resolves a recipient domain to the
+  // owning org's eligibility outcome, from the stored registry + gateway presence.
+  // It returns ONLY safe public signals (outcome, org handle, status, trust tier)
+  // and is never an invoke permission — the receiver's control still owns intake.
+  rpc ResolveRecipientDomain(ResolveRecipientDomainRequest) returns (ResolveRecipientDomainResponse);
+  // DeriveOutboundPartnerLink (P3 / 120C.2 slice 4 — the crux): a sending member
+  // resolves a recipient domain and gets a ready-to-use sender-local outbound
+  // partner-link to it, derived (find-or-create) automatically — no operator
+  // config. The link's trust is the shared federation relay-client CA (no
+  // per-partner trust root). Returns the partner_link_id only on a resolved recipient.
+  rpc DeriveOutboundPartnerLink(DeriveOutboundPartnerLinkRequest) returns (DeriveOutboundPartnerLinkResponse);
+  // ResolvePartnerIdentity (2B): the READ side of partner identity. Assembles the
+  // single authoritative "who is my partner + verified identity" record for a
+  // (gateway, partner_link) from source-of-truth rows — the caller gateway, the
+  // partner link, and the currently ADMISSIBLE pinned identities (active + fresh +
+  // trust-root-bundle-consistent bindings). It uses the SAME exported usability
+  // predicates the runtime authorization uses, so it reports exactly what the
+  // denial layer would honor. It REPORTS state (it does not deny) — config
+  // generation (2C) and operators consume it instead of hand-reading five tables.
+  rpc ResolvePartnerIdentity(ResolvePartnerIdentityRequest) returns (ResolvePartnerIdentityResponse);
+  // GenerateGatewayConfig (2C): DERIVE a gateway's per-partner federation runtime
+  // config from authoritative store state (it composes ResolvePartnerIdentity over
+  // the gateway's allowed partner links). Increment 1 produces the INBOUND
+  // cert->binding authority (partner-link bindings) as the exact JSON document the
+  // gateway loads; outbound relay-targets is a follow-on. Returned as an opaque-JSON
+  // envelope (like the redeem bundle) so it is drop-in for the gateway's loaders.
+  rpc GenerateGatewayConfig(GenerateGatewayConfigRequest) returns (GenerateGatewayConfigResponse);
+  rpc UpsertServiceCatalogEntry(UpsertServiceCatalogEntryRequest) returns (UpsertServiceCatalogEntryResponse);
+  rpc ListServiceCatalogEntries(ListServiceCatalogEntriesRequest) returns (ListServiceCatalogEntriesResponse);
+  rpc RetireServiceCatalogEntry(RetireServiceCatalogEntryRequest) returns (RetireServiceCatalogEntryResponse);
+  rpc UpsertFederationPolicyGrant(UpsertFederationPolicyGrantRequest) returns (UpsertFederationPolicyGrantResponse);
+  rpc ListFederationPolicyGrants(ListFederationPolicyGrantsRequest) returns (ListFederationPolicyGrantsResponse);
+  rpc ApproveFederationPolicyGrant(ApproveFederationPolicyGrantRequest) returns (ApproveFederationPolicyGrantResponse);
+  rpc RevokeFederationPolicyGrant(RevokeFederationPolicyGrantRequest) returns (RevokeFederationPolicyGrantResponse);
+  rpc CreatePartnerLink(CreatePartnerLinkRequest) returns (CreatePartnerLinkResponse);
+  rpc GetPartnerLink(GetPartnerLinkRequest) returns (GetPartnerLinkResponse);
+  rpc ListPartnerLinks(ListPartnerLinksRequest) returns (ListPartnerLinksResponse);
+  rpc RevokePartnerLink(RevokePartnerLinkRequest) returns (RevokePartnerLinkResponse);
+  rpc UpsertPartnerTrustRoot(UpsertPartnerTrustRootRequest) returns (UpsertPartnerTrustRootResponse);
+  rpc ListPartnerTrustRoots(ListPartnerTrustRootsRequest) returns (ListPartnerTrustRootsResponse);
+  rpc RevokePartnerTrustRoot(RevokePartnerTrustRootRequest) returns (RevokePartnerTrustRootResponse);
+  rpc UpsertPartnerGatewayIdentityBinding(UpsertPartnerGatewayIdentityBindingRequest) returns (UpsertPartnerGatewayIdentityBindingResponse);
+  rpc ListPartnerGatewayIdentityBindings(ListPartnerGatewayIdentityBindingsRequest) returns (ListPartnerGatewayIdentityBindingsResponse);
+  rpc RevokePartnerGatewayIdentityBinding(RevokePartnerGatewayIdentityBindingRequest) returns (RevokePartnerGatewayIdentityBindingResponse);
+  rpc UpsertGatewayPool(UpsertGatewayPoolRequest) returns (UpsertGatewayPoolResponse);
+  rpc ListGatewayPools(ListGatewayPoolsRequest) returns (ListGatewayPoolsResponse);
+  rpc RegisterFederationGateway(RegisterFederationGatewayRequest) returns (RegisterFederationGatewayResponse);
+  rpc ListFederationGateways(ListFederationGatewaysRequest) returns (ListFederationGatewaysResponse);
+  rpc CreateGatewayCredential(CreateGatewayCredentialRequest) returns (CreateGatewayCredentialResponse);
+  rpc ListGatewayCredentials(ListGatewayCredentialsRequest) returns (ListGatewayCredentialsResponse);
+  rpc RevokeGatewayCredential(RevokeGatewayCredentialRequest) returns (RevokeGatewayCredentialResponse);
+  rpc ListFederationTransactions(ListFederationTransactionsRequest) returns (ListFederationTransactionsResponse);
+  rpc ListGatewayExchangeDiagnostics(ListGatewayExchangeDiagnosticsRequest) returns (ListGatewayExchangeDiagnosticsResponse);
+  rpc ApproveContractPack(ApproveContractPackRequest) returns (ApproveContractPackResponse);
+  rpc ListContractPackApprovals(ListContractPackApprovalsRequest) returns (ListContractPackApprovalsResponse);
+  rpc PinContractPackVersion(PinContractPackVersionRequest) returns (PinContractPackVersionResponse);
+  rpc ListContractPackPins(ListContractPackPinsRequest) returns (ListContractPackPinsResponse);
+  // CreateOutboundExchangeRequest records an operator-initiated outbound
+  // federation exchange (FED-P16-008). Operator-scoped + audited. The request
+  // exposes NO identity/contract/envelope fields: envelope_id + wire
+  // idempotency_key are server-minted; the Source identity comes from the gateway
+  // config at send time, never the request body.
+  rpc CreateOutboundExchangeRequest(CreateOutboundExchangeRequestRequest) returns (CreateOutboundExchangeRequestResponse);
+  // UploadOutboundAttachmentChunk uploads ONE chunk of a large attachment to the control's
+  // content store ahead of the dispatch, so a blob bigger than a single portal->control gRPC
+  // call (bounded by the ~128 KiB circuit-relay limited-connection data cap) can be delivered
+  // across many small idempotent calls. Once all chunk_count chunks for sha256 are present the
+  // control reassembles + policy-screens + stores the blob; the dispatch then references it by
+  // sha256 (an OutboundLargeAttachment with sha256 set and content empty).
+  rpc UploadOutboundAttachmentChunk(UploadOutboundAttachmentChunkRequest) returns (UploadOutboundAttachmentChunkResponse);
+
+  // --- Portal direct-SQL replacement reads (S1) -----------------------------
+  // docs/design/portal-sql-to-rpc-inventory.md S4.2. All four are read-only,
+  // explicitly tenant-scoped, carry a precomputed `max_timestamp_ms` upper
+  // boundary, and return the REPEATABLE READ transaction snapshot timestamp as
+  // `watermark_unix_ms` (S6.1). Handlers land in S2; this slice is contract only.
+
+  // GetDispatchStatus queries status, faults, and round-trip latencies for
+  // outbound builder-work exchanges. Replaces inventory sites #2, #3, #4, #5,
+  // #27 and #32.
+  rpc GetDispatchStatus(GetDispatchStatusRequest) returns (GetDispatchStatusResponse);
+
+  // GetMeshHealth inspects gateway enrollment, SPIFFE IDs, certificate expiry,
+  // and peer membership exchanges. Replaces inventory sites #24, #25 and #26.
+  rpc GetMeshHealth(GetMeshHealthRequest) returns (GetMeshHealthResponse);
+
+  // GetBuilderFleetHealth queries builder daemon capacities, memory
+  // utilization, and active heartbeats. Replaces inventory sites #1, #17
+  // and #30.
+  rpc GetBuilderFleetHealth(GetBuilderFleetHealthRequest) returns (GetBuilderFleetHealthResponse);
+
+  // InspectStuckItems is a READ-ONLY inspection of stuck exchanges, stuck
+  // commercial events, and recent builder faults. It never mutates: the
+  // guarded cleanup mutations live behind MaintenanceAdminService.ExecuteOps
+  // in admin.proto. Replaces inventory sites #19, #20, #21 and #22.
+  rpc InspectStuckItems(InspectStuckItemsRequest) returns (InspectStuckItemsResponse);
+}
+
+service FederationService {
+  rpc GatewayHeartbeat(GatewayHeartbeatRequest) returns (GatewayHeartbeatResponse);
+  rpc GetServiceCatalogView(GetServiceCatalogViewRequest) returns (GetServiceCatalogViewResponse);
+  rpc OpenFederationTransaction(OpenFederationTransactionRequest) returns (OpenFederationTransactionResponse);
+  rpc CreateFederationRoom(CreateFederationRoomRequest) returns (CreateFederationRoomResponse);
+  rpc SubmitFederationMessage(SubmitFederationMessageRequest) returns (SubmitFederationMessageResponse);
+  rpc RequestBuilderWork(RequestBuilderWorkRequest) returns (RequestBuilderWorkResponse);
+  rpc SubmitFederationResult(SubmitFederationResultRequest) returns (SubmitFederationResultResponse);
+  // SubmitCommercialEvent is the typed O2C business-event intake (NE-4.1):
+  // one RPC for all seven order_to_cash.v1 interactions. The ACTION comes
+  // from the authenticated exchange envelope (contract-bound), never the
+  // payload; the control plane validates the payload against the contract
+  // pack's interaction schema and appends a typed commercial event
+  // (idempotent by event key) with full allow/deny audit.
+  rpc SubmitCommercialEvent(SubmitCommercialEventRequest) returns (SubmitCommercialEventResponse);
+  // DeliverBuilderWorkResult is the REQUESTER-side reception of a partner's async
+  // builder-work result (FED-P16-009 PR3, cross-org). Distinct from
+  // SubmitFederationResult (executor-side): the requester keeps no transaction/
+  // ledger for an outbound-initiated request, so it matches the result to its
+  // outbound request row by the partner-minted work_request_id and records it there.
+  rpc DeliverBuilderWorkResult(DeliverBuilderWorkResultRequest) returns (DeliverBuilderWorkResultResponse);
+  // Bridge RPCs for the store-less outbound gateway worker (FED-P16-008), both
+  // authorized by gateway credential like GatewayHeartbeat. Claim flips
+  // claimable rows (pending OR lease-expired in_flight) to in_flight and returns
+  // them; Record audits + persists every send outcome (allow/deny/fail).
+  rpc ClaimPendingOutboundExchangeRequests(ClaimPendingOutboundExchangeRequestsRequest) returns (ClaimPendingOutboundExchangeRequestsResponse);
+  rpc RecordOutboundExchangeResult(RecordOutboundExchangeResultRequest) returns (RecordOutboundExchangeResultResponse);
+  // WatchPendingOutboundExchangeRequests streams a bare "a pending request now exists"
+  // wake so the store-less outbound worker Claims immediately instead of waiting for its
+  // next poll tick. Authorized PER LINK, exactly like ClaimPendingOutboundExchangeRequests
+  // (never tenant-wide — that would leak wakes to other links in a shared tenant). The wake
+  // carries NO request content: the worker responds by calling
+  // ClaimPendingOutboundExchangeRequests, which remains the sole authoritative claim path.
+  // Latency accelerator only — the worker's poll is the fail-safe floor if the stream drops
+  // or a wake is missed.
+  rpc WatchPendingOutboundExchangeRequests(WatchPendingOutboundExchangeRequestsRequest) returns (stream OutboundExchangePendingWake);
+}
+
+// GatewayRegistrationService carries the RM-2C gateway-registration command
+// envelopes without expanding their JSON schema into protobuf fields. The
+// JSON schema in internal/federation/gatewayregistration remains the authority
+// for canonical bytes, idempotency digests, signatures, and response envelopes.
+service GatewayRegistrationService {
+  rpc CreateGatewayBootstrapIntent(GatewayRegistrationCommandRequest) returns (GatewayRegistrationCommandResponse);
+  rpc RedeemGatewayBootstrapIntent(GatewayRegistrationCommandRequest) returns (GatewayRegistrationCommandResponse);
+  rpc RevokeGatewayRelayIdentity(GatewayRegistrationCommandRequest) returns (GatewayRegistrationCommandResponse);
+  rpc RotateGatewayRelayIdentity(GatewayRegistrationCommandRequest) returns (GatewayRegistrationCommandResponse);
+  // IssueMembershipCapability mints the short-TTL, signed libp2p-fabric MEMBERSHIP
+  // CAPABILITY (libp2p-fabric-migration P1.3) that binds an already-enrolled
+  // gateway's SEPARATE libp2p host key to its authorized federation identity. The
+  // caller proves possession of the libp2p private key (PoP over a request-bound
+  // challenge); the JSON schema in federation-gateway/gatewayregistration is the
+  // authority for the payload and the signed response envelope.
+  rpc IssueMembershipCapability(GatewayRegistrationCommandRequest) returns (GatewayRegistrationCommandResponse);
+  // PullMembershipRevocationList serves the caller's OWN-ORG signed libp2p-fabric
+  // revocation list (libp2p-fabric-migration P1.4 transport, own-org-only). It is a
+  // READ, dialed by the cert-renew-style reconciler over the control's :9090 (mTLS
+  // for hardened controls) with the operator dev-identity + tenant — the same
+  // operator+tenant auth as the other lifecycle commands. Per-partner cross-org
+  // distribution is a later phase (D6).
+  rpc PullMembershipRevocationList(GatewayRegistrationCommandRequest) returns (GatewayRegistrationCommandResponse);
+  // RegisterMeshIdentity records a relay daemon's MESH ed25519 identity + WireGuard-path
+  // material for an already-enrolled binding (control-plane peer-feed bridge G1), so the
+  // control plane can assemble it into a signed FabricPeerRoster. The daemon proves
+  // possession of the mesh key over an identity-bound challenge; the JSON schema in
+  // federation-gateway/gatewayregistration is the authority for the payload. Dormant
+  // (scope-only) until the migration grants gateway.identity.mesh_register.
+  rpc RegisterMeshIdentity(GatewayRegistrationCommandRequest) returns (GatewayRegistrationCommandResponse);
+  // PullFabricPeerRoster serves the caller's OWN-ORG signed FabricPeerRoster (peer-feed
+  // bridge G2): the control plane lists the org's registered relay mesh identities,
+  // re-verifies each, and assembles + membership-CA-signs a short-TTL roster the relay
+  // daemon applies to state.Peers. A READ, dialed by the reconciler like the
+  // revocation-list pull. Doubly dormant (nil signer + ungranted scope) until enabled.
+  rpc PullFabricPeerRoster(GatewayRegistrationCommandRequest) returns (GatewayRegistrationCommandResponse);
+}
+
+message GatewayRegistrationCommandRequest {
+  string tenant_id = 1;
+  bytes command_json = 2;
+}
+
+message GatewayRegistrationCommandResponse {
+  bytes response_json = 1;
+}
+
+message Partner {
+  string tenant_id = 1;
+  string partner_id = 2;
+  string display_name = 3;
+  string legal_name = 4;
+  string external_reference = 5;
+  string verification_state = 6;
+  string verification_evidence_refs_json = 7;
+  string primary_contacts_json = 8;
+  string created_by = 9;
+  int64 created_at_ms = 10;
+  int64 updated_at_ms = 11;
+}
+
+message PartnerLink {
+  string tenant_id = 1;
+  string partner_link_id = 2;
+  string partner_id = 3;
+  string state = 4;
+  string local_gateway_pool_id = 5;
+  string remote_partner_reference = 6;
+  string remote_trust_root_ref = 7;
+  string allowed_gateway_identities_json = 8;
+  string allowed_service_catalog_ids_json = 9;
+  string data_classification_rules_json = 10;
+  string default_approval_policy_id = 11;
+  bool kill_switch_enabled = 12;
+  int64 effective_at_ms = 13;
+  int64 expires_at_ms = 14;
+  string created_by = 15;
+  int64 created_at_ms = 16;
+  int64 updated_at_ms = 17;
+  int64 revoked_at_ms = 18;
+  string revoked_by = 19;
+}
+
+message PartnerTrustRoot {
+  string tenant_id = 1;
+  string trust_root_id = 2;
+  string partner_id = 3;
+  string display_name = 4;
+  string trust_root_pem = 5;
+  string bundle_sha256 = 6;
+  string state = 7;
+  int64 not_before_ms = 8;
+  int64 expires_at_ms = 9;
+  string created_by = 10;
+  int64 created_at_ms = 11;
+  int64 updated_at_ms = 12;
+  int64 revoked_at_ms = 13;
+  string revoked_by = 14;
+}
+
+message PartnerGatewayIdentityBinding {
+  string tenant_id = 1;
+  string binding_id = 2;
+  string partner_link_id = 3;
+  string trust_root_id = 4;
+  string remote_tenant_id = 5;
+  string remote_gateway_id = 6;
+  string service_principal_id = 7;
+  string spiffe_id = 8;
+  string subject = 9;
+  string fingerprint_sha256 = 10;
+  string trust_root_bundle_sha256 = 11;
+  string state = 12;
+  int64 effective_at_ms = 13;
+  int64 expires_at_ms = 14;
+  string created_by = 15;
+  int64 created_at_ms = 16;
+  int64 updated_at_ms = 17;
+  int64 revoked_at_ms = 18;
+  string revoked_by = 19;
+}
+
+message ServiceCatalogEntry {
+  string tenant_id = 1;
+  string service_catalog_id = 2;
+  string display_name = 3;
+  string service_kind = 4;
+  string description = 5;
+  string schema_json = 6;
+  string schema_version = 7;
+  string allowed_actions_json = 8;
+  string state = 9;
+  int64 deprecated_at_ms = 10;
+  string replacement_service_catalog_id = 11;
+  string created_by = 12;
+  int64 created_at_ms = 13;
+  int64 updated_at_ms = 14;
+  int64 retired_at_ms = 15;
+}
+
+message FederationPolicyGrant {
+  string tenant_id = 1;
+  string policy_grant_id = 2;
+  string partner_link_id = 3;
+  string service_catalog_id = 4;
+  string action = 5;
+  string resource_scope_json = 6;
+  string model_scope_json = 7;
+  string egress_scope_json = 8;
+  string state = 9;
+  string approval_mode = 10;
+  string approval_request_id = 11;
+  string denial_reason = 12;
+  string issued_by = 13;
+  string approved_by = 14;
+  string revoked_by = 15;
+  int64 expires_at_ms = 16;
+  int64 created_at_ms = 17;
+  int64 updated_at_ms = 18;
+  int64 approved_at_ms = 19;
+  int64 revoked_at_ms = 20;
+}
+
+message GatewayPool {
+  string tenant_id = 1;
+  string gateway_pool_id = 2;
+  string display_name = 3;
+  string routing_policy = 4;
+  string coordinator_lease_policy = 5;
+  string health_state = 6;
+  string capacity_summary_json = 7;
+  int64 created_at_ms = 8;
+  int64 updated_at_ms = 9;
+}
+
+message FederationGateway {
+  string tenant_id = 1;
+  string gateway_id = 2;
+  string display_name = 3;
+  string gateway_pool_id = 4;
+  string service_principal_id = 5;
+  string mtls_subject = 6;
+  string spiffe_id = 7;
+  string mesh_node_id = 8;
+  string allowed_partner_link_ids_json = 9;
+  string method_scopes_json = 10;
+  string allowed_outbound_destinations_json = 11;
+  string state = 12;
+  int64 last_heartbeat_at_ms = 13;
+  string health_state = 14;
+  string capacity_hint_json = 15;
+  int64 created_at_ms = 16;
+  int64 updated_at_ms = 17;
+  int64 revoked_at_ms = 18;
+}
+
+message GatewayCredential {
+  string tenant_id = 1;
+  string gateway_id = 2;
+  string credential_id = 3;
+  string credential_kind = 4;
+  string subject = 5;
+  string fingerprint_sha256 = 6;
+  int64 not_before_ms = 7;
+  int64 expires_at_ms = 8;
+  string state = 9;
+  string created_by = 10;
+  int64 created_at_ms = 11;
+  int64 revoked_at_ms = 12;
+  string certificate_plane = 13;
+  string identity_provenance = 14;
+}
+
+message FederationCommercialEvent {
+  string tenant_id = 1;
+  string event_id = 2;
+  string transaction_id = 3;
+  string partner_link_id = 4;
+  string event_kind = 5;
+  string event_key = 6;
+  string status = 7;
+  string payload_hash = 8;
+  string evidence_hash = 9;
+  int64 created_at_ms = 10;
+  int64 updated_at_ms = 11;
+}
+
+message FederationTransaction {
+  string tenant_id = 1;
+  string transaction_id = 2;
+  string partner_link_id = 3;
+  string opened_by_gateway_id = 4;
+  string transaction_kind = 5;
+  string subject = 6;
+  string state = 7;
+  string idempotency_key = 8;
+  int64 opened_at_ms = 9;
+  int64 updated_at_ms = 10;
+  int64 closed_at_ms = 11;
+  int64 cancelled_at_ms = 12;
+  repeated FederationCommercialEvent events = 13;
+}
+
+message GatewayExchangeDiagnostic {
+  string tenant_id = 1;
+  string gateway_id = 2;
+  string diagnostic_id = 3;
+  string partner_link_id = 4;
+  string envelope_id = 5;
+  string correlation_id = 6;
+  string decision = 7;
+  string denial_code = 8;
+  string authenticated_remote_gateway_id = 9;
+  string remote_tenant_id = 10;
+  string contract_id = 11;
+  string manifest_hash_sha256 = 12;
+  string action = 13;
+  string facade_method = 14;
+  string transport_path = 15;
+  string transport_state = 16;
+  string transport_error_code = 17;
+  string audit_event_id = 18;
+  int64 recorded_at_ms = 19;
+}
+
+message ContractPackApproval {
+  string tenant_id = 1;
+  string catalog_version = 2;
+  string pack_version = 3;
+  string manifest_id = 4;
+  string manifest_hash_sha256 = 5;
+  string state = 6;
+  string allowed_partner_link_ids_json = 7;
+  string contracts_json = 8;
+  string approved_by = 9;
+  int64 approved_at_ms = 10;
+  string created_by = 11;
+  int64 created_at_ms = 12;
+  int64 updated_at_ms = 13;
+  string audit_binding_hash_sha256 = 14;
+}
+
+message ContractPackPin {
+  string tenant_id = 1;
+  string partner_link_id = 2;
+  string catalog_version = 3;
+  string pack_version = 4;
+  string manifest_hash_sha256 = 5;
+  string previous_pack_version = 6;
+  string previous_manifest_hash_sha256 = 7;
+  string pinned_by = 8;
+  int64 pinned_at_ms = 9;
+  string reason = 10;
+  string audit_binding_hash_sha256 = 11;
+}
+
+message CreatePartnerRequest {
+  string tenant_id = 1;
+  string partner_id = 2;
+  string display_name = 3;
+  string legal_name = 4;
+  string external_reference = 5;
+  string verification_state = 6;
+  string verification_evidence_refs_json = 7;
+  string primary_contacts_json = 8;
+  string idempotency_key = 9;
+}
+
+message CreatePartnerResponse {
+  Partner partner = 1;
+  ErrorInfo error = 2;
+}
+
+// Organization is the product-facing view of an organization-registry record
+// (P3 / 120C.2). Registry-confidential fields (tax_id, registered_address) and
+// internal relay scoping (allowed fabrics/regions) are intentionally omitted.
+message Organization {
+  string tenant_id = 1;
+  string org_id = 2;
+  string org_handle = 3;
+  string legal_name = 4;
+  string primary_domain = 5;
+  string support_email = 6;
+  string security_contact_email = 7;
+  string status = 8;
+  string default_intake_posture = 9;
+  string visibility_policy = 10;
+  string created_by = 11;
+  int64 created_at_ms = 12;
+  int64 updated_at_ms = 13;
+}
+
+message RegisterOrganizationRequest {
+  string tenant_id = 1;
+  string org_handle = 2;
+  string legal_name = 3;
+  string primary_domain = 4;
+  string support_email = 5;
+  string security_contact_email = 6;
+  string status = 7;
+  string idempotency_key = 8;
+}
+
+message RegisterOrganizationResponse {
+  Organization organization = 1;
+  ErrorInfo error = 2;
+}
+
+message SetOrganizationStatusRequest {
+  string tenant_id = 1;
+  string org_handle = 2;
+  // event is an orgregistry lifecycle transition: "revoke", "suspend", or
+  // "flag_for_review". Applied fail-closed — only lawful transitions are permitted.
+  string event = 3;
+  string reason = 4;
+}
+
+message SetOrganizationStatusResponse {
+  Organization organization = 1;
+  // released_domains lists the verified domains released back to the pool when the
+  // org moved to a suspended/revoked status (empty otherwise).
+  repeated string released_domains = 2;
+  ErrorInfo error = 3;
+}
+
+// DomainVerificationChallenge is the proof-of-control instruction returned to an
+// org: publish expected_dns_txt_record at the domain, then call VerifyDomain.
+message DomainVerificationChallenge {
+  string domain = 1;
+  string method = 2;
+  string expected_dns_txt_record = 3;
+  int64 issued_at_ms = 4;
+  int64 expires_at_ms = 5;
+  string org_status = 6;
+}
+
+message RequestDomainVerificationRequest {
+  string tenant_id = 1;
+  string org_handle = 2;
+  string domain = 3;
+  string method = 4;
+}
+
+message RequestDomainVerificationResponse {
+  DomainVerificationChallenge challenge = 1;
+  ErrorInfo error = 2;
+}
+
+message VerifyDomainRequest {
+  string tenant_id = 1;
+  string org_handle = 2;
+  string domain = 3;
+}
+
+message VerifyDomainResponse {
+  Organization organization = 1;
+  bool verified = 2;
+  string detail = 3;
+  ErrorInfo error = 4;
+}
+
+message ResolveRecipientDomainRequest {
+  string tenant_id = 1;
+  string caller_org_handle = 2;
+  string recipient_domain = 3;
+}
+
+// ResolveRecipientDomainResponse carries ONLY safe public signals. outcome is one
+// of: resolved | recipient_unknown | recipient_suspended_or_revoked |
+// domain_conflict_review_hold | recipient_verified_no_live_gateway |
+// receiver_onboarding_required. eligible == (outcome == resolved) and is NOT an
+// invoke permission. org_handle/status/trust_tier are populated only when a known
+// org owns the domain.
+message ResolveRecipientDomainResponse {
+  string outcome = 1;
+  bool eligible = 2;
+  string org_handle = 3;
+  string status = 4;
+  string trust_tier = 5;
+  ErrorInfo error = 6;
+}
+
+message DeriveOutboundPartnerLinkRequest {
+  string tenant_id = 1;
+  string caller_org_handle = 2;
+  string recipient_domain = 3;
+}
+
+// DeriveOutboundPartnerLinkResponse: outcome is the same recipient-directory
+// outcome as ResolveRecipientDomain. partner_link_id is the derived sender-local
+// outbound link to the recipient, populated ONLY when outcome == resolved.
+message DeriveOutboundPartnerLinkResponse {
+  string outcome = 1;
+  bool eligible = 2;
+  string org_handle = 3;
+  string partner_link_id = 4;
+  ErrorInfo error = 5;
+}
+
+message GetPartnerRequest {
+  string tenant_id = 1;
+  string partner_id = 2;
+}
+
+message GetPartnerResponse {
+  Partner partner = 1;
+  ErrorInfo error = 2;
+}
+
+message ListPartnersRequest {
+  string tenant_id = 1;
+}
+
+message ListPartnersResponse {
+  repeated Partner partners = 1;
+  ErrorInfo error = 2;
+}
+
+message UpsertServiceCatalogEntryRequest {
+  string tenant_id = 1;
+  string service_catalog_id = 2;
+  string display_name = 3;
+  string service_kind = 4;
+  string description = 5;
+  string schema_json = 6;
+  string schema_version = 7;
+  string allowed_actions_json = 8;
+  string state = 9;
+  int64 deprecated_at_ms = 10;
+  string replacement_service_catalog_id = 11;
+  string idempotency_key = 12;
+}
+
+message UpsertServiceCatalogEntryResponse {
+  ServiceCatalogEntry service_catalog_entry = 1;
+  ErrorInfo error = 2;
+}
+
+message ListServiceCatalogEntriesRequest {
+  string tenant_id = 1;
+}
+
+message ListServiceCatalogEntriesResponse {
+  repeated ServiceCatalogEntry service_catalog_entries = 1;
+  ErrorInfo error = 2;
+}
+
+message RetireServiceCatalogEntryRequest {
+  string tenant_id = 1;
+  string service_catalog_id = 2;
+}
+
+message RetireServiceCatalogEntryResponse {
+  ServiceCatalogEntry service_catalog_entry = 1;
+  bool changed = 2;
+  ErrorInfo error = 3;
+}
+
+message UpsertFederationPolicyGrantRequest {
+  string tenant_id = 1;
+  string policy_grant_id = 2;
+  string partner_link_id = 3;
+  string service_catalog_id = 4;
+  string action = 5;
+  string resource_scope_json = 6;
+  string model_scope_json = 7;
+  string egress_scope_json = 8;
+  string state = 9;
+  string approval_mode = 10;
+  string approval_request_id = 11;
+  string denial_reason = 12;
+  int64 expires_at_ms = 13;
+  string idempotency_key = 14;
+}
+
+message UpsertFederationPolicyGrantResponse {
+  FederationPolicyGrant policy_grant = 1;
+  ErrorInfo error = 2;
+}
+
+message ListFederationPolicyGrantsRequest {
+  string tenant_id = 1;
+}
+
+message ListFederationPolicyGrantsResponse {
+  repeated FederationPolicyGrant policy_grants = 1;
+  ErrorInfo error = 2;
+}
+
+message ApproveFederationPolicyGrantRequest {
+  string tenant_id = 1;
+  string policy_grant_id = 2;
+}
+
+message ApproveFederationPolicyGrantResponse {
+  FederationPolicyGrant policy_grant = 1;
+  ErrorInfo error = 2;
+}
+
+message RevokeFederationPolicyGrantRequest {
+  string tenant_id = 1;
+  string policy_grant_id = 2;
+  string denial_reason = 3;
+}
+
+message RevokeFederationPolicyGrantResponse {
+  FederationPolicyGrant policy_grant = 1;
+  bool changed = 2;
+  ErrorInfo error = 3;
+}
+
+message CreatePartnerLinkRequest {
+  string tenant_id = 1;
+  string partner_link_id = 2;
+  string partner_id = 3;
+  string state = 4;
+  string local_gateway_pool_id = 5;
+  string remote_partner_reference = 6;
+  string remote_trust_root_ref = 7;
+  string allowed_gateway_identities_json = 8;
+  string allowed_service_catalog_ids_json = 9;
+  string data_classification_rules_json = 10;
+  string default_approval_policy_id = 11;
+  bool kill_switch_enabled = 12;
+  int64 effective_at_ms = 13;
+  int64 expires_at_ms = 14;
+  string idempotency_key = 15;
+}
+
+message CreatePartnerLinkResponse {
+  PartnerLink partner_link = 1;
+  ErrorInfo error = 2;
+}
+
+message GetPartnerLinkRequest {
+  string tenant_id = 1;
+  string partner_link_id = 2;
+}
+
+message GetPartnerLinkResponse {
+  PartnerLink partner_link = 1;
+  ErrorInfo error = 2;
+}
+
+message ResolvePartnerIdentityRequest {
+  string tenant_id = 1;
+  string gateway_id = 2;
+  string partner_link_id = 3;
+}
+
+// ResolvedPartnerBindingView pairs an admissible partner-gateway identity binding
+// with the trust root it pins to.
+message ResolvedPartnerBindingView {
+  PartnerGatewayIdentityBinding binding = 1;
+  PartnerTrustRoot trust_root = 2;
+}
+
+message ResolvePartnerIdentityResponse {
+  // The caller gateway (its own relay identity fields) and the resolved partner
+  // link (with state + kill-switch, reported not enforced).
+  FederationGateway gateway = 1;
+  PartnerLink partner_link = 2;
+  // The currently ADMISSIBLE pinned identities: active + fresh + bundle-consistent.
+  // Empty for a shared-CA link (no per-partner trust root); more than one during a
+  // trust-root rotation overlap.
+  repeated ResolvedPartnerBindingView bindings = 3;
+  // Whether this gateway is permitted to use this partner link (allowed-link set +
+  // allowed-gateway-identity policy). Computed via the shared store predicate.
+  bool gateway_link_allowed = 4;
+  ErrorInfo error = 5;
+}
+
+message GenerateGatewayConfigRequest {
+  string tenant_id = 1;
+  string gateway_id = 2;
+}
+
+message GenerateGatewayConfigResponse {
+  // The rendered INBOUND cert->binding authority as the exact JSON document the
+  // gateway loads (gateway_partner_link_bindings.v1), org-scoped (one org-level
+  // binding per partner org). Empty bytes = no admissible inbound bindings. The
+  // OUTBOUND path is NOT generated here: the gateway runner synthesizes the
+  // org-level relay target from the fed-<domain>-receiver rendezvous id (frictionless
+  // by-domain / Capstone C1b), and an explicit relay-targets entry would override
+  // that synthesis and break horizontal scaling. Manifest bindings are a follow-on.
+  bytes partner_link_bindings_json = 1;
+  ErrorInfo error = 2;
+  // field 3 (relay_targets_json) intentionally retired — see above.
+}
+
+message ListPartnerLinksRequest {
+  string tenant_id = 1;
+}
+
+message ListPartnerLinksResponse {
+  repeated PartnerLink partner_links = 1;
+  ErrorInfo error = 2;
+}
+
+message RevokePartnerLinkRequest {
+  string tenant_id = 1;
+  string partner_link_id = 2;
+}
+
+message RevokePartnerLinkResponse {
+  PartnerLink partner_link = 1;
+  bool changed = 2;
+  ErrorInfo error = 3;
+}
+
+message UpsertPartnerTrustRootRequest {
+  string tenant_id = 1;
+  string trust_root_id = 2;
+  string partner_id = 3;
+  string display_name = 4;
+  string trust_root_pem = 5;
+  string bundle_sha256 = 6;
+  string state = 7;
+  int64 not_before_ms = 8;
+  int64 expires_at_ms = 9;
+  string idempotency_key = 10;
+}
+
+message UpsertPartnerTrustRootResponse {
+  PartnerTrustRoot trust_root = 1;
+  ErrorInfo error = 2;
+}
+
+message ListPartnerTrustRootsRequest {
+  string tenant_id = 1;
+  string partner_id = 2;
+}
+
+message ListPartnerTrustRootsResponse {
+  repeated PartnerTrustRoot trust_roots = 1;
+  ErrorInfo error = 2;
+}
+
+message RevokePartnerTrustRootRequest {
+  string tenant_id = 1;
+  string trust_root_id = 2;
+}
+
+message RevokePartnerTrustRootResponse {
+  PartnerTrustRoot trust_root = 1;
+  bool changed = 2;
+  ErrorInfo error = 3;
+}
+
+message UpsertPartnerGatewayIdentityBindingRequest {
+  string tenant_id = 1;
+  string binding_id = 2;
+  string partner_link_id = 3;
+  string trust_root_id = 4;
+  string remote_tenant_id = 5;
+  string remote_gateway_id = 6;
+  string service_principal_id = 7;
+  string spiffe_id = 8;
+  string subject = 9;
+  string fingerprint_sha256 = 10;
+  string trust_root_bundle_sha256 = 11;
+  string state = 12;
+  int64 effective_at_ms = 13;
+  int64 expires_at_ms = 14;
+  string idempotency_key = 15;
+}
+
+message UpsertPartnerGatewayIdentityBindingResponse {
+  PartnerGatewayIdentityBinding binding = 1;
+  ErrorInfo error = 2;
+}
+
+message ListPartnerGatewayIdentityBindingsRequest {
+  string tenant_id = 1;
+  string partner_link_id = 2;
+}
+
+message ListPartnerGatewayIdentityBindingsResponse {
+  repeated PartnerGatewayIdentityBinding bindings = 1;
+  ErrorInfo error = 2;
+}
+
+message RevokePartnerGatewayIdentityBindingRequest {
+  string tenant_id = 1;
+  string binding_id = 2;
+}
+
+message RevokePartnerGatewayIdentityBindingResponse {
+  PartnerGatewayIdentityBinding binding = 1;
+  bool changed = 2;
+  ErrorInfo error = 3;
+}
+
+message UpsertGatewayPoolRequest {
+  string tenant_id = 1;
+  string gateway_pool_id = 2;
+  string display_name = 3;
+  string routing_policy = 4;
+  string coordinator_lease_policy = 5;
+  string health_state = 6;
+  string capacity_summary_json = 7;
+}
+
+message UpsertGatewayPoolResponse {
+  GatewayPool gateway_pool = 1;
+  ErrorInfo error = 2;
+}
+
+message ListGatewayPoolsRequest {
+  string tenant_id = 1;
+}
+
+message ListGatewayPoolsResponse {
+  repeated GatewayPool gateway_pools = 1;
+  ErrorInfo error = 2;
+}
+
+message RegisterFederationGatewayRequest {
+  string tenant_id = 1;
+  string gateway_id = 2;
+  string display_name = 3;
+  string gateway_pool_id = 4;
+  string service_principal_id = 5;
+  string mtls_subject = 6;
+  string spiffe_id = 7;
+  string mesh_node_id = 8;
+  string allowed_partner_link_ids_json = 9;
+  string method_scopes_json = 10;
+  string allowed_outbound_destinations_json = 11;
+  string state = 12;
+  int64 last_heartbeat_at_ms = 13;
+  string health_state = 14;
+  string capacity_hint_json = 15;
+  string idempotency_key = 16;
+}
+
+message RegisterFederationGatewayResponse {
+  FederationGateway gateway = 1;
+  ErrorInfo error = 2;
+}
+
+message ListFederationGatewaysRequest {
+  string tenant_id = 1;
+}
+
+message ListFederationGatewaysResponse {
+  repeated FederationGateway gateways = 1;
+  ErrorInfo error = 2;
+}
+
+message CreateGatewayCredentialRequest {
+  string tenant_id = 1;
+  string gateway_id = 2;
+  string credential_id = 3;
+  string credential_kind = 4;
+  string subject = 5;
+  string fingerprint_sha256 = 6;
+  int64 not_before_ms = 7;
+  int64 expires_at_ms = 8;
+  string state = 9;
+  string idempotency_key = 10;
+}
+
+message CreateGatewayCredentialResponse {
+  GatewayCredential credential = 1;
+  ErrorInfo error = 2;
+}
+
+message ListGatewayCredentialsRequest {
+  string tenant_id = 1;
+  string gateway_id = 2;
+}
+
+message ListGatewayCredentialsResponse {
+  repeated GatewayCredential credentials = 1;
+  ErrorInfo error = 2;
+}
+
+message RevokeGatewayCredentialRequest {
+  string tenant_id = 1;
+  string gateway_id = 2;
+  string credential_id = 3;
+}
+
+message RevokeGatewayCredentialResponse {
+  GatewayCredential credential = 1;
+  bool changed = 2;
+  ErrorInfo error = 3;
+}
+
+message ListFederationTransactionsRequest {
+  string tenant_id = 1;
+  string partner_link_id = 2;
+  string state = 3;
+  int32 limit = 4;
+  bool include_events = 5;
+  int32 event_limit = 6;
+}
+
+message SubmitCommercialEventRequest {
+  string tenant_id = 1;
+  string partner_link_id = 2;
+  string transaction_id = 3;
+  // One of the order_to_cash.v1 business actions (request_for_quote,
+  // submit_quote, submit_purchase_order, confirm_order,
+  // update_shipment_status, issue_invoice, update_payment_status).
+  string action = 4;
+  string service_catalog_id = 5;
+  // The business document; validated against the contract pack's schema
+  // for the action before the event is appended.
+  string payload_json = 6;
+  string correlation_id = 7;
+  string idempotency_key = 8;
+}
+
+message SubmitCommercialEventResponse {
+  string event_id = 1;
+  string event_kind = 2;
+  string status = 3;
+  int64 accepted_at_ms = 4;
+  ErrorInfo error = 5;
+}
+
+message ListFederationTransactionsResponse {
+  repeated FederationTransaction transactions = 1;
+  int64 server_time_ms = 2;
+  ErrorInfo error = 3;
+}
+
+message ListGatewayExchangeDiagnosticsRequest {
+  string tenant_id = 1;
+  string gateway_id = 2;
+  string partner_link_id = 3;
+  string decision = 4;
+  int32 limit = 5;
+}
+
+message ListGatewayExchangeDiagnosticsResponse {
+  repeated GatewayExchangeDiagnostic diagnostics = 1;
+  int64 server_time_ms = 2;
+  ErrorInfo error = 3;
+}
+
+message ApproveContractPackRequest {
+  string tenant_id = 1;
+  string catalog_version = 2;
+  string pack_version = 3;
+  string manifest_id = 4;
+  string manifest_hash_sha256 = 5;
+  string allowed_partner_link_ids_json = 6;
+  string contracts_json = 7;
+}
+
+message ApproveContractPackResponse {
+  ContractPackApproval approval = 1;
+  ErrorInfo error = 2;
+}
+
+message ListContractPackApprovalsRequest {
+  string tenant_id = 1;
+  string catalog_version = 2;
+  string state = 3;
+}
+
+message ListContractPackApprovalsResponse {
+  repeated ContractPackApproval approvals = 1;
+  int64 server_time_ms = 2;
+  ErrorInfo error = 3;
+}
+
+message PinContractPackVersionRequest {
+  string tenant_id = 1;
+  string partner_link_id = 2;
+  string catalog_version = 3;
+  string pack_version = 4;
+  string manifest_hash_sha256 = 5;
+  string reason = 6;
+}
+
+message PinContractPackVersionResponse {
+  ContractPackPin pin = 1;
+  ErrorInfo error = 2;
+}
+
+message ListContractPackPinsRequest {
+  string tenant_id = 1;
+  string partner_link_id = 2;
+  string catalog_version = 3;
+}
+
+message ListContractPackPinsResponse {
+  repeated ContractPackPin pins = 1;
+  int64 server_time_ms = 2;
+  ErrorInfo error = 3;
+}
+
+message GatewayPartnerLinkView {
+  string tenant_id = 1;
+  string partner_link_id = 2;
+  string partner_id = 3;
+  string remote_partner_reference = 4;
+  string state = 5;
+  int64 effective_at_ms = 6;
+  int64 expires_at_ms = 7;
+}
+
+message ServiceCatalogEntryView {
+  string service_catalog_id = 1;
+  string display_name = 2;
+  string service_kind = 3;
+  string description = 4;
+  repeated string allowed_actions = 5;
+  string schema_json = 6;
+  string schema_version = 7;
+  string state = 8;
+  int64 deprecated_at_ms = 9;
+  string replacement_service_catalog_id = 10;
+}
+
+message FederationTransactionView {
+  string transaction_id = 1;
+  string partner_link_id = 2;
+  string state = 3;
+  int64 opened_at_ms = 4;
+}
+
+message FederationRoomView {
+  string room_id = 1;
+  string transaction_id = 2;
+  string state = 3;
+  int64 created_at_ms = 4;
+}
+
+message GatewayHeartbeatRequest {
+  string tenant_id = 1;
+  string partner_link_id = 2;
+  string correlation_id = 3;
+  string health_state = 4;
+  string capacity_hint_json = 5;
+}
+
+message GatewayHeartbeatResponse {
+  string gateway_id = 1;
+  GatewayPartnerLinkView partner_link = 2;
+  int64 accepted_at_ms = 3;
+  ErrorInfo error = 4;
+}
+
+message GetServiceCatalogViewRequest {
+  string tenant_id = 1;
+  string partner_link_id = 2;
+  string correlation_id = 3;
+}
+
+message GetServiceCatalogViewResponse {
+  GatewayPartnerLinkView partner_link = 1;
+  repeated ServiceCatalogEntryView entries = 2;
+  int64 server_time_ms = 3;
+  ErrorInfo error = 4;
+}
+
+message OpenFederationTransactionRequest {
+  string tenant_id = 1;
+  string partner_link_id = 2;
+  string correlation_id = 3;
+  string idempotency_key = 4;
+  string transaction_kind = 5;
+  string subject = 6;
+  string metadata_json = 7;
+  string requester_signature = 8;
+  string requester_signing_key_id = 9;
+}
+
+message OpenFederationTransactionResponse {
+  FederationTransactionView transaction = 1;
+  ErrorInfo error = 2;
+  string responder_signature = 3;
+  string responder_signing_key_id = 4;
+}
+
+message CreateFederationRoomRequest {
+  string tenant_id = 1;
+  string partner_link_id = 2;
+  string transaction_id = 3;
+  string correlation_id = 4;
+  string idempotency_key = 5;
+  string display_name = 6;
+  string metadata_json = 7;
+  string service_catalog_id = 8;
+  string action = 9;
+}
+
+message CreateFederationRoomResponse {
+  FederationRoomView room = 1;
+  ErrorInfo error = 2;
+}
+
+message SubmitFederationMessageRequest {
+  string tenant_id = 1;
+  string partner_link_id = 2;
+  string transaction_id = 3;
+  string room_id = 4;
+  string correlation_id = 5;
+  string idempotency_key = 6;
+  string message_id = 7;
+  string sender_ref = 8;
+  string content_type = 9;
+  string text = 10;
+  string metadata_json = 11;
+}
+
+message SubmitFederationMessageResponse {
+  string message_id = 1;
+  int64 accepted_at_ms = 2;
+  ErrorInfo error = 3;
+}
+
+message RequestBuilderWorkRequest {
+  string tenant_id = 1;
+  string partner_link_id = 2;
+  string transaction_id = 3;
+  string room_id = 4;
+  string correlation_id = 5;
+  string idempotency_key = 6;
+  string work_request_id = 7;
+  string service_catalog_id = 8;
+  string task_json = 9;
+  string action = 10;
+  repeated WorkloadNetworkEgress requested_egress = 11;
+  repeated WorkloadModelEgress requested_models = 12;
+}
+
+message RequestBuilderWorkResponse {
+  string work_request_id = 1;
+  string state = 2;
+  int64 accepted_at_ms = 3;
+  ErrorInfo error = 4;
+}
+
+message WorkloadNetworkEgress {
+  // host is a DNS name or literal IP the workload wants to reach.
+  string host = 1;
+  // cidr is used for corporate/private network ranges. It must be explicitly
+  // allowed by the policy grant; mesh reachability is never authorization.
+  string cidr = 2;
+  string protocol = 3;
+  uint32 port = 4;
+}
+
+message WorkloadModelEgress {
+  string provider = 1;
+  string model = 2;
+}
+
+message SubmitFederationResultRequest {
+  string tenant_id = 1;
+  string partner_link_id = 2;
+  string transaction_id = 3;
+  string room_id = 4;
+  string correlation_id = 5;
+  string idempotency_key = 6;
+  string work_request_id = 7;
+  string result_json = 8;
+}
+
+message SubmitFederationResultResponse {
+  string work_request_id = 1;
+  string state = 2;
+  int64 accepted_at_ms = 3;
+  ErrorInfo error = 4;
+}
+
+// DeliverBuilderWorkResultRequest is the requester-side reception of a partner's
+// async builder-work result (FED-P16-009 PR3). work_request_id is the
+// partner-minted id (W) the requester captured from the synchronous
+// request_builder_work response and indexed on its outbound row; it is the
+// match key. tenant_id/partner_link_id are taken from the authenticated session.
+message DeliverBuilderWorkResultRequest {
+  string tenant_id = 1;
+  string partner_link_id = 2;
+  string work_request_id = 3;
+  string result_json = 4;
+  string correlation_id = 5;
+  string idempotency_key = 6;
+}
+
+message DeliverBuilderWorkResultResponse {
+  string work_request_id = 1;
+  string state = 2;
+  int64 recorded_at_ms = 3;
+  ErrorInfo error = 4;
+}
+
+// ===== FED-P16-008: outbound federation initiation =====
+
+// OutboundExchangeRequestView is the wire projection of a control-plane outbound
+// exchange record returned to the gateway worker by the Claim bridge RPC. It
+// carries everything the store-less worker needs to build + send the envelope:
+// the minted envelope_id/idempotency_key, the resolved-or-cached contract ref,
+// the payload, and the namespace split (partner_link_id local vs
+// remote_partner_link_id on the wire).
+message OutboundExchangeRequestView {
+  string tenant_id = 1;
+  string request_id = 2;
+  string partner_link_id = 3;
+  string remote_partner_link_id = 4;
+  string action = 5;
+  string state = 6;
+  string envelope_id = 7;
+  string idempotency_key = 8;
+  string correlation_id = 9;
+  string contract_id = 10;
+  string contract_version = 11;
+  string manifest_hash_sha256 = 12;
+  string payload_schema_hash_sha256 = 13;
+  string payload_json = 14;
+  string metadata_json = 15;
+  string response_decision = 16;
+  string response_denial_code = 17;
+  string response_payload_json = 18;
+  string authenticated_remote_gateway_id = 19;
+  string failure_class = 20;
+  string failure_reason = 21;
+  int64 created_at_ms = 22;
+  int64 updated_at_ms = 23;
+  int64 claimed_at_ms = 24;
+  int64 responded_at_ms = 25;
+}
+
+// CreateOutboundExchangeRequestRequest exposes ONLY the operator-supplied fields.
+// Structurally NO Source/Destination/SPIFFE/pin/contract/envelope_id/wire-
+// idempotency fields exist here (no-fabricated-identity). create_idempotency_key
+// is control-side dedup only and NEVER goes on the wire.
+message CreateOutboundExchangeRequestRequest {
+  string tenant_id = 1;
+  string partner_link_id = 2;
+  string remote_partner_link_id = 3;
+  string action = 4;
+  string payload_json = 5;
+  string metadata_json = 6;
+  string create_idempotency_key = 7;
+  // recipient_domain addresses the recipient BY DOMAIN instead of
+  // remote_partner_link_id; the control plane resolves it via the member-
+  // authenticated recipient directory. Provide exactly one of the two.
+  string recipient_domain = 8;
+  // large_attachments carries out-of-band attachment BYTES for the large-attachment
+  // fed-svc path (design large-attachments-fedsvc.md). They travel on THIS local
+  // portal->control gRPC only — NEVER the exchange wire; the control stores + per-dispatch
+  // stages each blob and injects an opaque ref (fedsvc_ns + dispatch_token, no bytes) into
+  // payload_json.task.attachments. Small attachments still ride payload_json b64 inline.
+  repeated OutboundLargeAttachment large_attachments = 9;
+}
+
+// OutboundLargeAttachment is one large attachment blob uploaded alongside an outbound
+// exchange request, to be staged + served out-of-band over fed-svc rather than inlined.
+message OutboundLargeAttachment {
+  string file_name = 1;
+  string mime_type = 2;
+  string sha256 = 3;   // client-declared; the control re-hashes and rejects a mismatch
+  bytes content = 4;
+}
+
+message CreateOutboundExchangeRequestResponse {
+  OutboundExchangeRequestView request = 1;
+  ErrorInfo error = 2;
+}
+
+message UploadOutboundAttachmentChunkRequest {
+  string tenant_id = 1;
+  string sha256 = 2;      // content-address of the FULL reassembled blob
+  int32 chunk_index = 3;
+  int32 chunk_count = 4;
+  bytes content = 5;      // this chunk's raw bytes; keep each call well under the ~128 KiB cap
+}
+
+message UploadOutboundAttachmentChunkResponse {
+  bool complete = 1;      // true once all chunks are present + the blob is reassembled + stored
+  ErrorInfo error = 2;
+}
+
+message ClaimPendingOutboundExchangeRequestsRequest {
+  string tenant_id = 1;
+  // partner_link_id is A's LOCAL link id (authorized like GatewayHeartbeat
+  // against the gateway's allowed links). The returned view carries
+  // remote_partner_link_id for the worker's dial/wire/manifest resolution.
+  string partner_link_id = 2;
+  int32 limit = 3;
+}
+
+message ClaimPendingOutboundExchangeRequestsResponse {
+  repeated OutboundExchangeRequestView requests = 1;
+  int64 server_time_ms = 2;
+  ErrorInfo error = 3;
+}
+
+message RecordOutboundExchangeResultRequest {
+  string tenant_id = 1;
+  // partner_link_id is A's LOCAL link id, authorized like GatewayHeartbeat. The
+  // handler additionally verifies the named request row belongs to this link.
+  string partner_link_id = 2;
+  string request_id = 3;
+  string state = 4;
+  string response_decision = 5;
+  string response_denial_code = 6;
+  string response_payload_json = 7;
+  string authenticated_remote_gateway_id = 8;
+  string failure_class = 9;
+  string failure_reason = 10;
+  string responder_signature = 11;
+  string responder_signing_key_id = 12;
+}
+
+message RecordOutboundExchangeResultResponse {
+  OutboundExchangeRequestView request = 1;
+  ErrorInfo error = 2;
+}
+
+message WatchPendingOutboundExchangeRequestsRequest {
+  string tenant_id = 1;
+  // partner_link_id is A's LOCAL link id, authorized like ClaimPendingOutboundExchangeRequests.
+  // The worker opens ONE stream per configured local link.
+  string partner_link_id = 2;
+}
+
+message OutboundExchangePendingWake {
+  string partner_link_id = 1;
+  int64 server_time_ms = 2;
+}
+
+// --- Portal direct-SQL replacement messages (S1) ----------------------------
+// docs/design/portal-sql-to-rpc-inventory.md S4.2.
+
+message GetDispatchStatusRequest {
+  // tenant_id is explicit and mandatory: the control plane authorizes
+  // (principal.OperatorID, tenant_id) against operator_project_memberships
+  // BEFORE any read, then sets `app.tenant_id` for RLS (S3.1).
+  string tenant_id = 1;
+  // max_timestamp_ms is the precomputed upper timestamp boundary supplied by
+  // the caller so a legacy-SQL/gRPC shadow comparison reads the same bounded
+  // range (S6.2). 0 means "now" (server-evaluated at transaction start).
+  int64 max_timestamp_ms = 2;
+  // identifier selects the dispatch to report on. Exactly one must be set; an
+  // unset oneof is rejected with control.invalid_argument. Field numbers 3 and
+  // 4 are reserved to this oneof — a later third selector MUST take a new
+  // number inside the same oneof, never reuse 3 or 4.
+  oneof identifier {
+    string transaction_id = 3;
+    string exchange_request_id = 4;
+  }
+}
+
+message GetDispatchStatusResponse {
+  string status = 1;
+  int64 duration_ms = 2;
+  string result_payload_json = 3;
+  repeated string fault_codes = 4;
+  double p50_latency_ms = 5;
+  double p95_latency_ms = 6;
+  // watermark_unix_ms is the REPEATABLE READ snapshot timestamp (S6.1).
+  int64 watermark_unix_ms = 7;
+  ErrorInfo error = 8;
+}
+
+message GetMeshHealthRequest {
+  // tenant_id is explicit and mandatory (S3.1).
+  string tenant_id = 1;
+  // max_timestamp_ms is the precomputed upper timestamp boundary (S6.2).
+  // 0 means "now".
+  int64 max_timestamp_ms = 2;
+}
+
+message GetMeshHealthResponse {
+  repeated GatewayHealth gateways = 1;
+  repeated MembershipExchangeStatus membership_exchanges = 2;
+  // watermark_unix_ms is the REPEATABLE READ snapshot timestamp (S6.1).
+  int64 watermark_unix_ms = 3;
+  ErrorInfo error = 4;
+}
+
+message GatewayHealth {
+  string gateway_id = 1;
+  string spiffe_id = 2;
+  string status = 3;
+  int64 cert_expires_at_unix_ms = 4;
+  // cert_expired is evaluated by the server against the same snapshot
+  // watermark, so a client never has to re-derive expiry from a local clock.
+  bool cert_expired = 5;
+}
+
+message MembershipExchangeStatus {
+  string peer_domain = 1;
+  string exchange_state = 2;
+  int64 last_exchange_unix_ms = 3;
+}
+
+message GetBuilderFleetHealthRequest {
+  // tenant_id is explicit and mandatory (S3.1).
+  string tenant_id = 1;
+  // max_timestamp_ms is the precomputed upper timestamp boundary (S6.2).
+  // 0 means "now".
+  int64 max_timestamp_ms = 2;
+}
+
+message GetBuilderFleetHealthResponse {
+  repeated BuilderDaemonStatus daemons = 1;
+  // watermark_unix_ms is the REPEATABLE READ snapshot timestamp (S6.1).
+  int64 watermark_unix_ms = 2;
+  ErrorInfo error = 3;
+}
+
+message BuilderDaemonStatus {
+  string daemon_id = 1;
+  string hostname = 2;
+  int64 last_heartbeat_unix_ms = 3;
+  // healthy is evaluated by the server against the same snapshot watermark.
+  bool healthy = 4;
+  int32 active_workloads = 5;
+  int64 memory_rss_bytes = 6;
+}
+
+message InspectStuckItemsRequest {
+  // tenant_id is explicit and mandatory (S3.1).
+  string tenant_id = 1;
+  // max_age_ms is the staleness threshold above which an item counts as stuck.
+  int64 max_age_ms = 2;
+  // max_timestamp_ms is the precomputed upper timestamp boundary (S6.2).
+  // 0 means "now".
+  int64 max_timestamp_ms = 3;
+}
+
+message InspectStuckItemsResponse {
+  int32 stuck_exchanges_count = 1;
+  int32 stuck_commercial_events_count = 2;
+  int32 recent_fault_count = 3;
+  string worst_case_fault_code = 4;
+  // watermark_unix_ms is the REPEATABLE READ snapshot timestamp (S6.1), so all
+  // four counters above come from one atomic point-in-time snapshot rather
+  // than the four un-synced autocommit queries they replace.
+  int64 watermark_unix_ms = 5;
+  ErrorInfo error = 6;
+}

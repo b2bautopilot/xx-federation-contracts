@@ -1,0 +1,10 @@
+{
+  "jcs": {
+    "{\"a\":[3,1,2],\"s\":\"nested\"}": "7b2261223a5b332c312c325d2c2273223a226e6573746564227d",
+    "{\"b\":2,\"a\":1}": "7b2261223a312c2262223a327d",
+    "{\"n\":1.0,\"m\":100}": "7b226d223a3130302c226e223a317d",
+    "{\"u\":\"\\u00fcn\\u00ef\"}": "7b2275223a22c3bc6ec3af227d"
+  },
+  "lca_canonical": "{\"allowed_relay_fabric\":\"fabric-a\",\"allowed_relay_regions\":[\"us\",\"eu\"],\"authorization_id\":\"auth-1\",\"csr_public_key_binding\":{\"alg\":\"sha256-spki\",\"value\":\"spki-1\"},\"expires_at_ms\":9000,\"fabric_id\":\"fabric-a\",\"facade_scope\":[\"fed-svc\"],\"gateway_id\":\"gw-a\",\"gateway_pool_id\":\"pool-a\",\"issuer_control_id\":\"control-1\",\"issuer_key_id\":\"kid-1\",\"not_before_ms\":1000,\"org_id\":\"org-acme\",\"schema_version\":\"local-control-authorization.v0\",\"signature_alg\":\"ed25519-jcs-v1\",\"tenant_id\":\"tenant-acme\"}",
+  "lca_digest": "54fbd317fcf535dc50e9bdf95531aebdf3bf7b851f167432811639319d1d402a"
+}
