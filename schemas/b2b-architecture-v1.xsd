@@ -101,6 +101,8 @@
           <xs:element name="framework" type="bay:nonBlankStringType"/>
           <xs:element name="direct-sql-permitted" type="xs:boolean"/>
           <xs:element name="grpc-client-mode" type="bay:nonBlankStringType"/>
+          <!-- Invariant: all mutating actions must follow the Backend-For-Frontend (BFF) Command Pattern -->
+          <xs:element name="command-architecture" type="bay:nonBlankStringType" minOccurs="0"/>
         </xs:sequence>
       </xs:extension>
     </xs:complexContent>
