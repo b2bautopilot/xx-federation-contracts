@@ -277,7 +277,9 @@ func TestTestOnlyGatewayCertificateProviderIssuesPlaneSeparatedDerivedIdentity(t
 	if err != nil {
 		t.Fatalf("IssueBusinessGateway error = %v", err)
 	}
-	transport, err := provider.IssueGatewayTransportServer(context.Background(), request)
+	transportReq := request
+	transportReq.DNSNames = []string{"gateway-newco-01.b2bautopilot.local"}
+	transport, err := provider.IssueGatewayTransportServer(context.Background(), transportReq)
 	if err != nil {
 		t.Fatalf("IssueGatewayTransportServer error = %v", err)
 	}
@@ -328,6 +330,7 @@ func TestTestOnlyGatewayCertificateProviderIssuesPlaneSeparatedDerivedIdentity(t
 		TrustRoots:              roots,
 		ExpectedPlane:           gatewaycert.PlaneGatewayTransport,
 		ExpectedSPIFFENamespace: gatewaycert.GatewayTransportNamespace,
+		ExpectedServerDNSName:   "gateway-newco-01.b2bautopilot.local",
 		Now:                     now,
 	}); err != nil {
 		t.Fatalf("transport certificate did not verify in transport plane: %v", err)
@@ -346,6 +349,7 @@ func TestTestOnlyGatewayCertificateProviderIssuesPlaneSeparatedDerivedIdentity(t
 		TrustRoots:              roots,
 		ExpectedPlane:           gatewaycert.PlaneGatewayTransport,
 		ExpectedSPIFFENamespace: gatewaycert.GatewayTransportNamespace,
+		ExpectedServerDNSName:   "gateway-newco-01.b2bautopilot.local",
 		Now:                     now,
 	}); !errorsIsPlaneMismatch(err) {
 		t.Fatalf("relay certificate transport-plane error = %v, want plane mismatch", err)
@@ -614,7 +618,9 @@ func TestExternalCAProviderIssuesGatewayTransportServerFromDistinctRoot(t *testi
 	if err != nil {
 		t.Fatalf("IssueRelayClient error = %v", err)
 	}
-	server, err := serverIssuer.IssueGatewayTransportServer(context.Background(), request)
+	serverReq := request
+	serverReq.DNSNames = []string{"gateway-newco-01.b2bautopilot.local"}
+	server, err := serverIssuer.IssueGatewayTransportServer(context.Background(), serverReq)
 	if err != nil {
 		t.Fatalf("IssueGatewayTransportServer error = %v", err)
 	}
@@ -645,6 +651,7 @@ func TestExternalCAProviderIssuesGatewayTransportServerFromDistinctRoot(t *testi
 		TrustRoots:              roots,
 		ExpectedPlane:           gatewaycert.PlaneGatewayTransport,
 		ExpectedSPIFFENamespace: gatewaycert.GatewayTransportNamespace,
+		ExpectedServerDNSName:   "gateway-newco-01.b2bautopilot.local",
 		Now:                     now,
 	}); err != nil {
 		t.Fatalf("transport server certificate rejected by server plane verifier: %v", err)
@@ -663,6 +670,7 @@ func TestExternalCAProviderIssuesGatewayTransportServerFromDistinctRoot(t *testi
 		TrustRoots:              roots,
 		ExpectedPlane:           gatewaycert.PlaneGatewayTransport,
 		ExpectedSPIFFENamespace: gatewaycert.GatewayTransportNamespace,
+		ExpectedServerDNSName:   "gateway-newco-01.b2bautopilot.local",
 		Now:                     now,
 	}); !errorsIsPlaneMismatch(err) {
 		t.Fatalf("relay client certificate transport-server-plane error = %v, want plane mismatch", err)

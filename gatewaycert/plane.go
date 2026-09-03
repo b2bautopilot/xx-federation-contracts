@@ -72,8 +72,14 @@ type PlaneVerifyOptions struct {
 	ExpectedPlane            CertificatePlane
 	ExpectedSPIFFENamespace  string
 	ExpectedVerifierAudience string
-	MinValidFor              time.Duration
-	Now                      time.Time
+	// ExpectedServerDNSName is the hostname a server-auth plane leaf must
+	// carry as a DNS SAN. It is REQUIRED for the server-auth planes
+	// (gateway_transport, relay_cell_server) and passed to
+	// x509.VerifyOptions.DNSName; it is ignored for client-auth planes,
+	// which bind SPIFFE URIs instead.
+	ExpectedServerDNSName string
+	MinValidFor           time.Duration
+	Now                   time.Time
 }
 
 type PlaneVerification struct {
@@ -94,6 +100,7 @@ type PlaneVerifier struct {
 	ExpectedPlane            CertificatePlane
 	ExpectedSPIFFENamespace  string
 	ExpectedVerifierAudience string
+	ExpectedServerDNSName    string
 	Now                      func() time.Time
 }
 
@@ -109,6 +116,9 @@ func (v PlaneVerifier) VerifyPlaneCertificate(ctx context.Context, opts PlaneVer
 	}
 	if opts.ExpectedVerifierAudience == "" {
 		opts.ExpectedVerifierAudience = v.ExpectedVerifierAudience
+	}
+	if opts.ExpectedServerDNSName == "" {
+		opts.ExpectedServerDNSName = v.ExpectedServerDNSName
 	}
 	if opts.Now.IsZero() && v.Now != nil {
 		opts.Now = v.Now().UTC()
@@ -139,7 +149,16 @@ func VerifyPlaneCertificate(_ context.Context, opts PlaneVerifyOptions) (PlaneVe
 	if err != nil {
 		return PlaneVerification{}, err
 	}
-	rootID, err := verifyAgainstTrustRootsForPlane(leaf, intermediates, roots, now, opts.ExpectedPlane)
+	serverName := strings.TrimSpace(opts.ExpectedServerDNSName)
+	if planeRequiresServerDNSName(opts.ExpectedPlane) {
+		if serverName == "" {
+			return PlaneVerification{}, fmt.Errorf("%w: server-auth plane %q requires an expected DNS name", ErrPlaneIdentityMismatch, opts.ExpectedPlane)
+		}
+		if err := rejectWildcardServerDNSNames(leaf); err != nil {
+			return PlaneVerification{}, err
+		}
+	}
+	rootID, err := verifyAgainstTrustRootsForPlane(leaf, intermediates, roots, now, opts.ExpectedPlane, serverName)
 	if err != nil {
 		return PlaneVerification{}, fmt.Errorf("%w: %v", ErrPlaneIdentityMismatch, err)
 	}
@@ -526,6 +545,26 @@ func normalizeTrustRootDescriptor(desc TrustRootDescriptor) TrustRootDescriptor 
 	desc.ActivationNotBefore = desc.ActivationNotBefore.UTC()
 	desc.ActivationNotAfter = desc.ActivationNotAfter.UTC()
 	return desc
+}
+
+// planeRequiresServerDNSName reports whether the plane is a server-auth plane
+// whose leaves must carry a DNS SAN bound at verification time. Client-auth
+// planes bind SPIFFE URIs instead and never consult DNS.
+func planeRequiresServerDNSName(plane CertificatePlane) bool {
+	return plane == PlaneGatewayTransport || plane == PlaneRelayCellServer
+}
+
+// rejectWildcardServerDNSNames fails closed on any wildcard DNS SAN. A partner
+// gateway trusts a server leaf purely by ServerName + RootCAs, so a wildcard
+// SAN is an over-broad impersonation primitive even when the presented name
+// happens to match — x509.Verify would accept it, this package must not.
+func rejectWildcardServerDNSNames(leaf *x509.Certificate) error {
+	for _, name := range leaf.DNSNames {
+		if strings.Contains(name, "*") {
+			return fmt.Errorf("%w: server leaf carries wildcard DNS SAN %q", ErrPlaneIdentityMismatch, name)
+		}
+	}
+	return nil
 }
 
 func (p CertificatePlane) Valid() bool {

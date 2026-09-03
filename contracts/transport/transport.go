@@ -5,6 +5,7 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
@@ -157,13 +158,13 @@ func (n Negotiator) Negotiate(ctx context.Context, req Request) (Result, error) 
 	}
 
 	if req.Policy.DirectMode != DirectModeDisabled {
-		directResult := n.tryDirect(ctx, req)
+		directResult, directErr := n.tryDirect(ctx, req)
 		switch directResult.State {
 		case StateDirectReady, StateIdentityMismatch:
 			return directResult, nil
 		case StateDirectUnavailable:
 			if req.Policy.DirectMode == DirectModeRequired || !req.Policy.RelayFallbackAllowed {
-				return directResult, nil
+				return directResult, directErr
 			}
 			n.recordRelayFallback("attempt")
 		}
@@ -199,13 +200,18 @@ func (n Negotiator) Negotiate(ctx context.Context, req Request) (Result, error) 
 	return result, err
 }
 
-func (n Negotiator) tryDirect(ctx context.Context, req Request) Result {
+// tryDirect opens the direct path. The public Result carries only fixed,
+// sanitized messages (connector errors may embed endpoints, private
+// addresses, or SPIFFE internals and must never surface there); the raw
+// connector cause is returned as the Go error — the local-diagnostics-only
+// channel — and is never persisted or forwarded.
+func (n Negotiator) tryDirect(ctx context.Context, req Request) (Result, error) {
 	out := Result{PartnerLinkID: req.PartnerLinkID, Path: PathDirect}
 	if n.Direct == nil {
 		out.State = StateDirectUnavailable
 		out.ErrorCode = ErrorDirectUnavailable
 		out.ErrorMessage = "direct connector is not configured"
-		return out
+		return out, nil
 	}
 	session, err := n.Direct.OpenDirect(ctx, DirectRequest{
 		PartnerLinkID:          req.PartnerLinkID,
@@ -215,18 +221,18 @@ func (n Negotiator) tryDirect(ctx context.Context, req Request) Result {
 	if err != nil {
 		out.State = StateDirectUnavailable
 		out.ErrorCode = ErrorDirectUnavailable
-		out.ErrorMessage = err.Error()
-		return out
+		out.ErrorMessage = "direct transport unavailable"
+		return out, err
 	}
 	if !MatchesExpectedIdentity(session.RemoteIdentity, req.ExpectedRemoteIdentity) {
 		out.State = StateIdentityMismatch
 		out.ErrorCode = ErrorIdentityMismatch
 		out.ErrorMessage = "direct remote identity does not match expected gateway identity"
-		return out
+		return out, nil
 	}
 	out.State = StateDirectReady
 	out.AuthenticatedRemoteIdentity = session.RemoteIdentity.Normalized()
-	return out
+	return out, nil
 }
 
 func (n Negotiator) recordRelayFallback(outcome string) {
@@ -250,7 +256,7 @@ func (n Negotiator) tryRelay(ctx context.Context, req Request) (Result, error) {
 	if err != nil {
 		out.State = StateRelayUnavailable
 		out.ErrorCode = ErrorRelayPayloadEncrypted
-		out.ErrorMessage = err.Error()
+		out.ErrorMessage = "relay payload encryption failed"
 		return out, err
 	}
 	var last Result
@@ -354,10 +360,16 @@ func OpenRelayPayload(frame RelayFrame, key []byte, associatedData []byte) ([]by
 	return aead.Open(nil, frame.Nonce, frame.Ciphertext, associatedData)
 }
 
+// relayPayloadAssociatedData builds the AES-GCM associated data binding a
+// sealed relay payload to its partner link and both transport identities.
+// The encoding is unambiguous and deterministic: a big-endian field count
+// followed by big-endian length-delimited fields, so no two distinct field
+// tuples can produce identical bytes at a field boundary (a bare separator
+// join would collide, e.g. ("a|b","c") vs ("a","b|c")).
 func relayPayloadAssociatedData(partnerLinkID string, local, expectedRemote Identity) []byte {
 	local = local.Normalized()
 	expectedRemote = expectedRemote.Normalized()
-	return []byte(strings.Join([]string{
+	fields := []string{
 		strings.TrimSpace(partnerLinkID),
 		local.TenantID,
 		local.GatewayID,
@@ -375,14 +387,35 @@ func relayPayloadAssociatedData(partnerLinkID string, local, expectedRemote Iden
 		expectedRemote.FingerprintSHA256,
 		expectedRemote.TrustRootID,
 		expectedRemote.TrustRootBundleSHA256,
-	}, "|"))
+	}
+	out := make([]byte, 0, 8+len(fields)*4)
+	var count [8]byte
+	binary.BigEndian.PutUint64(count[:], uint64(len(fields)))
+	out = append(out, count[:]...)
+	var length [4]byte
+	for _, field := range fields {
+		binary.BigEndian.PutUint32(length[:], uint32(len(field)))
+		out = append(out, length[:]...)
+		out = append(out, field...)
+	}
+	return out
 }
 
+// MatchesExpectedIdentity reports whether the authenticated actual identity
+// satisfies the expected gateway binding, fail-closed. Tenant and gateway must
+// always match exactly. Beyond that, production matching requires an explicit
+// cryptographic binding: the expected identity must pin the SPIFFE ID or the
+// key fingerprint, and the actual identity must carry the same value. An
+// expected identity with only tenant/gateway (plus display-level service
+// fields) never matches — unpopulated binding fields are not wildcards.
 func MatchesExpectedIdentity(actual, expected Identity) bool {
 	actual = actual.Normalized()
 	expected = expected.Normalized()
 	if actual.TenantID == "" || actual.GatewayID == "" ||
 		actual.TenantID != expected.TenantID || actual.GatewayID != expected.GatewayID {
+		return false
+	}
+	if expected.SPIFFEID == "" && expected.FingerprintSHA256 == "" {
 		return false
 	}
 	if expected.SPIFFEID != "" && actual.SPIFFEID != expected.SPIFFEID {

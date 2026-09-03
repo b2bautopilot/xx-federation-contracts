@@ -79,8 +79,19 @@ func TestGatewayPrincipalUsable(t *testing.T) {
 
 func TestGatewayAllowedByIdentity(t *testing.T) {
 	claims := GatewayIdentityClaims{GatewayID: "gw-a", ServicePrincipalID: "sp-a", MTLSSubject: "CN=gw-a", SPIFFEID: "spiffe://gw-a"}
-	if !GatewayAllowedByIdentity(nil, claims) {
-		t.Error("empty allow list must be open")
+	// Absent, empty, and whitespace-only allow-lists deny (fail closed); only
+	// the explicit AllowAllGateways sentinel opens matching.
+	if GatewayAllowedByIdentity(nil, claims) {
+		t.Error("nil allow list must deny, not allow all")
+	}
+	if GatewayAllowedByIdentity([]string{}, claims) {
+		t.Error("empty allow list must deny, not allow all")
+	}
+	if GatewayAllowedByIdentity([]string{"   ", ""}, claims) {
+		t.Error("whitespace-only allow list must deny, not allow all")
+	}
+	if !GatewayAllowedByIdentity(AllowAllGateways, claims) {
+		t.Error("explicit AllowAllGateways sentinel must allow")
 	}
 	if !GatewayAllowedByIdentity([]string{"gw-a"}, claims) {
 		t.Error("gateway id in allow list must match")

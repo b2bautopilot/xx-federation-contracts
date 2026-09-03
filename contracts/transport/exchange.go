@@ -78,11 +78,14 @@ func (h ExchangeHarness) Send(ctx context.Context, req ExchangeRequest) (Exchang
 	case StateDirectReady:
 		received = req.Envelope
 	case StateRelayReady:
+		// The public transport result carries only the fixed sanitized
+		// message; the open failure (key/associated-data/plaintext detail)
+		// is returned as the Go error — the local-diagnostics-only channel.
 		received, err = openRelayExchangeEnvelope(req, result.RelayFrame)
 		if err != nil {
 			out.Transport.State = StateRelayUnavailable
 			out.Transport.ErrorCode = ErrorRelayPayloadEncrypted
-			out.Transport.ErrorMessage = err.Error()
+			out.Transport.ErrorMessage = "relay payload encryption failed"
 			return out, err
 		}
 	default:

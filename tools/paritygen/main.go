@@ -1,9 +1,11 @@
 // Command paritygen deterministically regenerates the golden compatibility
-// vectors under testdata/parity from the (contracts) implementations. The ported
-// bodies are byte-identical to their canonical pre-move sources (enumerated in
-// the enclosing PR), so regenerating here reproduces the vectors captured from
-// the pre-move implementation. The replay tests verify the code reproduces these
-// fixtures, so a silent drift in any wire/digest/decision contract fails CI.
+// vectors under testdata/parity from the (contracts) implementations. Most
+// ported bodies are byte-identical to their canonical sources (enumerated in
+// the enclosing PR); the transport AAD encoding, identity binding, intake
+// status gating, and error sanitization are deliberate fail-closed
+// hardenings owned by this repository, so their vectors are generated here
+// and pinned by the replay tests. Regenerating must produce zero diff — any
+// diff means a wire/digest/decision contract drifted and fails review.
 //
 // Usage:
 //
@@ -13,6 +15,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -24,6 +27,18 @@ import (
 	"github.com/b2bautopilot/xx-federation-contracts/contracts/transport"
 	"github.com/b2bautopilot/xx-federation-contracts/gatewayregistration"
 )
+
+// relayCapture is a stub RelayConnector that records the sealed frame the
+// Negotiator hands to the relay, so the fixture captures the associated data
+// built by the real negotiation path (not a hand-constructed string).
+type relayCapture struct {
+	frame transport.RelayFrame
+}
+
+func (r *relayCapture) OpenRelay(_ context.Context, req transport.RelayRequest) (transport.RelaySession, error) {
+	r.frame = req.Frame
+	return transport.RelaySession{RemoteIdentity: req.ExpectedRemoteIdentity}, nil
+}
 
 func writeFixture(name string, v any) error {
 	b, err := json.MarshalIndent(v, "", "  ")
@@ -44,15 +59,39 @@ func main() {
 	for i := range key {
 		key[i] = byte(i + 1)
 	}
-	aad := []byte("part|tenant-a|gw-1|sp-a|spiffe-a|sub-a|fp-a|tr-a|trb-a|tenant-b|gw-2|sp-b|spiffe-b|sub-b|fp-b|tr-b|trb-b")
 	plaintext := []byte(`{"schema_version":"builders.federation.gateway_exchange.v1"}`)
-	frame, err := transport.SealRelayPayload(plaintext, "kv-1", key, aad, bytes.NewReader([]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12}))
+	local := transport.Identity{
+		TenantID: "tenant-a", GatewayID: "gw-1", ServicePrincipalID: "sp-a",
+		SPIFFEID: "spiffe-a", Subject: "sub-a", FingerprintSHA256: "fp-a",
+		TrustRootID: "tr-a", TrustRootBundleSHA256: "trb-a",
+	}
+	remote := transport.Identity{
+		TenantID: "tenant-b", GatewayID: "gw-2", ServicePrincipalID: "sp-b",
+		SPIFFEID: "spiffe-b", Subject: "sub-b", FingerprintSHA256: "fp-b",
+		TrustRootID: "tr-b", TrustRootBundleSHA256: "trb-b",
+	}
+	rec := &relayCapture{}
+	negotiator := transport.NewNegotiator(nil, rec)
+	if _, err := negotiator.Negotiate(context.Background(), transport.Request{
+		PartnerLinkID:          "part",
+		LocalIdentity:          local,
+		ExpectedRemoteIdentity: remote,
+		Policy:                 transport.Policy{DirectMode: transport.DirectModeDisabled, RelayFallbackAllowed: true},
+		BootstrapServers:       []transport.BootstrapServer{{Endpoint: "relay.example", TrustRootRef: "tr", RendezvousNamespace: "ns"}},
+		BusinessPayload:        plaintext,
+		RelayPayloadKeyID:      "kv-1",
+		RelayPayloadKey:        key,
+	}); err != nil {
+		panic(err)
+	}
+	// Deterministic reseal over the captured associated data for the vector.
+	frame, err := transport.SealRelayPayload(plaintext, "kv-1", key, rec.frame.AssociatedData, bytes.NewReader([]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12}))
 	if err != nil {
 		panic(err)
 	}
 	transportVec := map[string]any{
 		"key_hex":        hex.EncodeToString(key),
-		"aad":            string(aad),
+		"aad_hex":        hex.EncodeToString(rec.frame.AssociatedData),
 		"plaintext":      string(plaintext),
 		"nonce_hex":      hex.EncodeToString(frame.Nonce),
 		"ciphertext_hex": hex.EncodeToString(frame.Ciphertext),

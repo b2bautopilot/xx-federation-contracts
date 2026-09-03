@@ -184,18 +184,22 @@ func selectedTrustRoots(roots []TrustRoot, trustRootID string) []TrustRoot {
 }
 
 func verifyAgainstTrustRoots(leaf *x509.Certificate, intermediates []*x509.Certificate, roots []TrustRoot, now time.Time) (string, error) {
-	return verifyAgainstTrustRootsForUsage(leaf, intermediates, roots, now, x509.ExtKeyUsageClientAuth)
+	return verifyAgainstTrustRootsForUsage(leaf, intermediates, roots, now, x509.ExtKeyUsageClientAuth, "")
 }
 
-func verifyAgainstTrustRootsForPlane(leaf *x509.Certificate, intermediates []*x509.Certificate, roots []TrustRoot, now time.Time, plane CertificatePlane) (string, error) {
+func verifyAgainstTrustRootsForPlane(leaf *x509.Certificate, intermediates []*x509.Certificate, roots []TrustRoot, now time.Time, plane CertificatePlane, serverName string) (string, error) {
 	usage, err := extKeyUsageForPlane(plane)
 	if err != nil {
 		return "", err
 	}
-	return verifyAgainstTrustRootsForUsage(leaf, intermediates, roots, now, usage)
+	return verifyAgainstTrustRootsForUsage(leaf, intermediates, roots, now, usage, serverName)
 }
 
-func verifyAgainstTrustRootsForUsage(leaf *x509.Certificate, intermediates []*x509.Certificate, roots []TrustRoot, now time.Time, usage x509.ExtKeyUsage) (string, error) {
+// verifyAgainstTrustRootsForUsage chains the leaf to one of the selected trust
+// roots. A non-empty serverName is passed to x509.VerifyOptions.DNSName so a
+// server-auth leaf must carry it as a DNS SAN; client-auth verification passes
+// "" and binds the SPIFFE URI at a higher layer instead.
+func verifyAgainstTrustRootsForUsage(leaf *x509.Certificate, intermediates []*x509.Certificate, roots []TrustRoot, now time.Time, usage x509.ExtKeyUsage, serverName string) (string, error) {
 	intermediatePool := x509.NewCertPool()
 	for _, cert := range intermediates {
 		intermediatePool.AddCert(cert)
@@ -206,6 +210,7 @@ func verifyAgainstTrustRootsForUsage(leaf *x509.Certificate, intermediates []*x5
 			rootPool.AddCert(cert)
 		}
 		if _, err := leaf.Verify(x509.VerifyOptions{
+			DNSName:       serverName,
 			Roots:         rootPool,
 			Intermediates: intermediatePool,
 			CurrentTime:   now,

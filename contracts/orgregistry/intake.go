@@ -118,12 +118,20 @@ type IntakeDecision struct {
 // DecideIntake computes the receiver-owned intake outcome, fail-closed, keying on
 // the VERIFIED csr_derived sender identity (never the payload). Precedence:
 //
-//	no verified identity          -> drop
-//	payload-asserted != verified  -> drop   (spoofing cross-check)
-//	sender org suspended/revoked  -> deny
-//	sender blocked by policy      -> deny
-//	sender approved by policy      -> ApprovedSenderPosture (default allow_service_request)
-//	otherwise                     -> DefaultPosture (unset -> challenge)
+//	no verified identity                  -> drop
+//	payload-asserted != verified          -> drop   (spoofing cross-check)
+//	sender status not production-eligible -> deny   (unknown, empty/unwired,
+//	                                           pending, terminal — see below)
+//	sender blocked by policy              -> deny
+//	sender approved by policy              -> ApprovedSenderPosture (default allow_service_request)
+//	otherwise                             -> DefaultPosture (unset -> challenge)
+//
+// The sender-status gate uses RegistrationEligibilityForOrgStatus: only a
+// production-eligible status (active) reaches policy evaluation. An unknown,
+// empty/unwired, pending, or terminal status denies — a permissive
+// DefaultPosture can never admit a sender whose standing is not established.
+// An empty status is deliberately a deny (not "not yet wired, defer to
+// policy"): a lookup miss must not fail open.
 //
 // Automatic rate-based throttle (counters) and the downstream PolicyGrant /
 // execution are out of scope here; a receiver may still set DefaultPosture or
@@ -136,13 +144,12 @@ func DecideIntake(policy ReceiverIntakePolicy, request IntakeRequest) IntakeDeci
 	if asserted := strings.TrimSpace(request.PayloadAssertedSenderOrgID); asserted != "" && asserted != verified {
 		return IntakeDecision{IntakeDrop, "payload-asserted sender does not match the verified csr_derived identity"}
 	}
-	switch request.SenderStatus {
-	case gatewayregistration.OrgStatusSuspended,
-		gatewayregistration.OrgStatusSuspendedPendingAppeal,
-		gatewayregistration.OrgStatusRevoked,
-		gatewayregistration.OrgStatusDeleted,
-		gatewayregistration.OrgStatusPermanentlyBarred:
-		return IntakeDecision{IntakeDeny, "sender organization is suspended or revoked"}
+	eligibility := gatewayregistration.RegistrationEligibilityForOrgStatus(request.SenderStatus)
+	if !eligibility.ProductionAllowed {
+		if eligibility.Disposition == gatewayregistration.DispositionTerminalError {
+			return IntakeDecision{IntakeDeny, "sender organization is suspended, revoked, or unknown"}
+		}
+		return IntakeDecision{IntakeDeny, "sender organization is not in production standing"}
 	}
 	if intakeContainsOrg(policy.BlockedSenderOrgIDs, verified) {
 		return IntakeDecision{IntakeDeny, "sender is blocked by receiver policy"}
@@ -186,20 +193,19 @@ func dataChannelEligibleIntake(p IntakePosture) bool {
 //	(1) the receiver opted in            (DataChannelPosture == DataChannelAllow), AND
 //	(2) the intake gate admitted the sender to a service-level posture
 //	    (allow_service_request / allow_invocation),                              AND
-//	(3) the sender org is NOT in a KNOWN non-production-eligible state — a bulk tunnel is
-//	    a higher-trust grant than a single request, so a KNOWN still-pending / sandbox-only
-//	    sender is held to the primary path. An UNKNOWN (empty) status does NOT block here:
-//	    the sender-status registry is not yet wired into the transport layer (see
-//	    receiver_intake_orgregistry.go), so the receiver's explicit opt-in + approval govern
-//	    — mirroring how DecideIntake itself relies on the policy when the status is empty; a
-//	    KNOWN-BAD status was already denied by DecideIntake above.
+//	(3) the sender org is production-eligible — a bulk tunnel is a
+//	    higher-trust grant than a single request, so a non-production,
+//	    unknown, or terminal sender is held to the primary path. DecideIntake
+//	    already enforces this; the explicit check here is defense-in-depth so
+//	    the channel gate stays closed even if the intake gate ever changes.
 //
-// NOTE (receiver-owned footgun): because an un-wired (empty) status defers to admission,
-// a receiver who runs a PERMISSIVE DefaultPosture (allow_service_request / allow_invocation)
-// AND opens the channel (DataChannelAllow) grants a tunnel to ANY verified sender — today,
-// every sender, since the status registry is un-wired. A receiver who wants the tunnel
-// restricted should NAME senders in ApprovedSenderOrgIDs rather than rely on a permissive
-// default (the same senders a permissive default already auto-admits to the primary exchange).
+// NOTE (receiver-owned footgun): a receiver who runs a PERMISSIVE
+// DefaultPosture (allow_service_request / allow_invocation) AND opens the
+// channel (DataChannelAllow) grants a tunnel to every production-eligible
+// verified sender. A receiver who wants the tunnel restricted should NAME
+// senders in ApprovedSenderOrgIDs rather than rely on a permissive default
+// (the same senders a permissive default already auto-admits to the primary
+// exchange).
 //
 // It is purely additive — the PRIMARY store-and-forward path is never gated by this,
 // and a deny here leaves the sender's primary exchange untouched.
@@ -211,10 +217,7 @@ func DecideDataChannel(policy ReceiverIntakePolicy, request IntakeRequest) DataC
 	if !dataChannelEligibleIntake(intake.Posture) {
 		return DataChannelDecision{false, "sender not admitted to a service-level intake posture: " + intake.Reason}
 	}
-	// TODO(sender-status-registry): once the transport layer ALWAYS populates SenderStatus,
-	// drop the `!= ""` carve so a MISSING status fails CLOSED here (a lookup miss must not
-	// fail open). Until then, empty == un-wired and the receiver's opt-in + approval govern.
-	if request.SenderStatus != "" && !gatewayregistration.RegistrationEligibilityForOrgStatus(request.SenderStatus).ProductionAllowed {
+	if !gatewayregistration.RegistrationEligibilityForOrgStatus(request.SenderStatus).ProductionAllowed {
 		return DataChannelDecision{false, "data channel requires a production-eligible sender in good standing"}
 	}
 	return DataChannelDecision{true, "receiver allows a data channel for this admitted sender"}

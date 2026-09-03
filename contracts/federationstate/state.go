@@ -275,16 +275,30 @@ type GatewayIdentityClaims struct {
 	SPIFFEID           string
 }
 
+// AllowAllGateways is the explicit opt-in to an open gateway allow-list.
+// An absent or empty allow-list DENIES (fail closed); only this sentinel
+// permits every gateway. Callers that historically relied on the implicit
+// nil-means-open behavior must pass AllowAllGateways deliberately.
+var AllowAllGateways = []string{"*"}
+
+// GatewayAllowedByIdentity reports whether the claims match any entry of the
+// allow-list, fail-closed. An absent, empty, or whitespace-only allow-list
+// denies every gateway; the only open mode is the explicit AllowAllGateways
+// sentinel. A claim matches when any of its identity fields equals a listed
+// entry exactly (after trimming).
 func GatewayAllowedByIdentity(allowed []string, claims GatewayIdentityClaims) bool {
-	if len(allowed) == 0 {
-		return true
-	}
 	values := map[string]bool{}
 	for _, value := range allowed {
 		value = strings.TrimSpace(value)
 		if value != "" {
 			values[value] = true
 		}
+	}
+	if len(values) == 0 {
+		return false
+	}
+	if values["*"] {
+		return true
 	}
 	return values[strings.TrimSpace(claims.GatewayID)] ||
 		values[strings.TrimSpace(claims.ServicePrincipalID)] ||

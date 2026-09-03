@@ -126,6 +126,81 @@ func TestDecideDataChannel_DecisionTable(t *testing.T) {
 	}
 }
 
+// TestDecideIntake_StatusGateFailClosed pins the production-standing gate: only
+// a production-eligible sender status reaches policy evaluation, even under a
+// permissive default posture. Unknown, empty/unwired, pending, and terminal
+// statuses all deny — a lookup miss or unfinished enrollment must not fail open.
+func TestDecideIntake_StatusGateFailClosed(t *testing.T) {
+	// Even the most permissive default posture cannot admit a non-production sender.
+	permissive := ReceiverIntakePolicy{DefaultPosture: IntakeAllowInvocation}
+	denyCases := map[string]gatewayregistration.OrgStatus{
+		"unknown org":                  gatewayregistration.OrgStatusUnknownOrg,
+		"empty unwired status":         "",
+		"unrecognized status":          gatewayregistration.OrgStatus("bogus-status"),
+		"draft":                        gatewayregistration.OrgStatusDraft,
+		"domain pending":               gatewayregistration.OrgStatusDomainPending,
+		"kyg pending":                  gatewayregistration.OrgStatusKYGPending,
+		"domain reverification":        gatewayregistration.OrgStatusDomainReverificationRequired,
+		"domain verified sandbox-only": gatewayregistration.OrgStatusDomainVerified,
+		"verified business":            gatewayregistration.OrgStatusVerifiedBusiness,
+		"review hold":                  gatewayregistration.OrgStatusReviewHold,
+		"suspended pending appeal":     gatewayregistration.OrgStatusSuspendedPendingAppeal,
+		"suspended":                    gatewayregistration.OrgStatusSuspended,
+		"revoked":                      gatewayregistration.OrgStatusRevoked,
+		"deleted":                      gatewayregistration.OrgStatusDeleted,
+		"permanently barred":           gatewayregistration.OrgStatusPermanentlyBarred,
+	}
+	for name, status := range denyCases {
+		got := DecideIntake(permissive, IntakeRequest{VerifiedSenderOrgID: "org-acme", SenderStatus: status})
+		if got.Posture != IntakeDeny {
+			t.Errorf("%s (%q): DecideIntake posture = %q, want deny", name, status, got.Posture)
+		}
+	}
+	// Terminal statuses deny with the terminal reason; non-terminal ones with
+	// the standing reason.
+	terminal := DecideIntake(permissive, IntakeRequest{VerifiedSenderOrgID: "org-acme", SenderStatus: gatewayregistration.OrgStatusUnknownOrg})
+	if terminal.Reason != "sender organization is suspended, revoked, or unknown" {
+		t.Errorf("unknown-org reason = %q", terminal.Reason)
+	}
+	pending := DecideIntake(permissive, IntakeRequest{VerifiedSenderOrgID: "org-acme", SenderStatus: gatewayregistration.OrgStatusDraft})
+	if pending.Reason != "sender organization is not in production standing" {
+		t.Errorf("pending reason = %q", pending.Reason)
+	}
+	// Active senders still reach policy evaluation.
+	admitted := DecideIntake(permissive, IntakeRequest{VerifiedSenderOrgID: "org-acme", SenderStatus: gatewayregistration.OrgStatusActive})
+	if admitted.Posture != IntakeAllowInvocation {
+		t.Errorf("active sender posture = %q, want the permissive default", admitted.Posture)
+	}
+	// The status gate precedes allow/block lists: a non-production sender is
+	// denied even when explicitly approved.
+	approved := DecideIntake(
+		ReceiverIntakePolicy{DefaultPosture: IntakeDrop, ApprovedSenderPosture: IntakeAllowInvocation, ApprovedSenderOrgIDs: []string{"org-acme"}},
+		IntakeRequest{VerifiedSenderOrgID: "org-acme", SenderStatus: gatewayregistration.OrgStatusSuspended},
+	)
+	if approved.Posture != IntakeDeny {
+		t.Errorf("approved-but-suspended sender posture = %q, want deny", approved.Posture)
+	}
+}
+
+// TestDecideDataChannel_StatusGateClosed ensures the bulk-channel gate stays
+// shut for non-production senders even when the receiver opted in.
+func TestDecideDataChannel_StatusGateClosed(t *testing.T) {
+	open := ReceiverIntakePolicy{DefaultPosture: IntakeAllowServiceRequest, DataChannelPosture: DataChannelAllow}
+	for _, status := range []gatewayregistration.OrgStatus{
+		"", gatewayregistration.OrgStatusUnknownOrg, gatewayregistration.OrgStatusDraft,
+		gatewayregistration.OrgStatusSuspended,
+	} {
+		got := DecideDataChannel(open, IntakeRequest{VerifiedSenderOrgID: "org-acme", SenderStatus: status})
+		if got.Granted {
+			t.Errorf("status %q: data channel granted, want deny (%s)", status, got.Reason)
+		}
+	}
+	granted := DecideDataChannel(open, IntakeRequest{VerifiedSenderOrgID: "org-acme", SenderStatus: gatewayregistration.OrgStatusActive})
+	if !granted.Granted {
+		t.Errorf("active sender data channel denied: %s", granted.Reason)
+	}
+}
+
 // TestIntakePostureValidation_FailClosed ensures an unknown configured posture is
 // rejected at policy-validate time.
 func TestIntakePostureValidation_FailClosed(t *testing.T) {

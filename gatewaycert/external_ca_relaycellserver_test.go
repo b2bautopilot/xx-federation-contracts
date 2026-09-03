@@ -65,13 +65,14 @@ func TestExternalCAProviderIssuesRelayCellServer(t *testing.T) {
 		t.Fatalf("URIs = %v, want exactly [%s] (no attacker CSR URI)", leaf.URIs, wantSPIFFE)
 	}
 
-	// (d) verifies under its own plane.
+	// (d) verifies under its own plane with the canonical hostname bound.
 	roots := provider.TrustRoots()
 	if _, err := gatewaycert.VerifyPlaneCertificate(context.Background(), gatewaycert.PlaneVerifyOptions{
 		CertificatePEM:          result.CertificatePEM,
 		TrustRoots:              roots,
 		ExpectedPlane:           gatewaycert.PlaneRelayCellServer,
 		ExpectedSPIFFENamespace: gatewaycert.RelayCellServerNamespace,
+		ExpectedServerDNSName:   hostname,
 		Now:                     now,
 	}); err != nil {
 		t.Fatalf("server leaf rejected by its own plane verifier: %v", err)
@@ -212,7 +213,8 @@ func TestRelayCellServerVsBackplaneServerIsolation(t *testing.T) {
 	}
 	if _, err := gatewaycert.VerifyPlaneCertificate(context.Background(), gatewaycert.PlaneVerifyOptions{
 		CertificatePEM: bpServerLeaf.CertificatePEM, TrustRoots: roots,
-		ExpectedPlane: gatewaycert.PlaneRelayCellServer, ExpectedSPIFFENamespace: gatewaycert.RelayCellServerNamespace, Now: now,
+		ExpectedPlane: gatewaycert.PlaneRelayCellServer, ExpectedSPIFFENamespace: gatewaycert.RelayCellServerNamespace,
+		ExpectedServerDNSName: "relay-cell.b2bautopilot.com", Now: now,
 	}); !errorsIsPlaneMismatch(err) {
 		t.Errorf("backplane-server leaf verified as cell-server = %v, want mismatch", err)
 	}

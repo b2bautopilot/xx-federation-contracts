@@ -19,10 +19,19 @@ import (
 // transport sealing contract against silent drift.
 type goldenTransport struct {
 	KeyHex        string `json:"key_hex"`
-	AAD           string `json:"aad"`
+	AADHex        string `json:"aad_hex"`
 	Plaintext     string `json:"plaintext"`
 	NonceHex      string `json:"nonce_hex"`
 	CiphertextHex string `json:"ciphertext_hex"`
+}
+
+func goldenAAD(t *testing.T, g goldenTransport) []byte {
+	t.Helper()
+	aad, err := hex.DecodeString(g.AADHex)
+	if err != nil {
+		t.Fatalf("decode aad: %v", err)
+	}
+	return aad
 }
 
 func loadGoldenTransport(t *testing.T) goldenTransport {
@@ -44,7 +53,7 @@ func TestGoldenSealRelayPayloadReplays(t *testing.T) {
 	if err != nil {
 		t.Fatalf("decode key: %v", err)
 	}
-	frame, err := SealRelayPayload([]byte(g.Plaintext), "kv-1", key, []byte(g.AAD), bytes.NewReader([]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12}))
+	frame, err := SealRelayPayload([]byte(g.Plaintext), "kv-1", key, goldenAAD(t, g), bytes.NewReader([]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12}))
 	if err != nil {
 		t.Fatalf("SealRelayPayload: %v", err)
 	}
@@ -54,7 +63,7 @@ func TestGoldenSealRelayPayloadReplays(t *testing.T) {
 	if got := hex.EncodeToString(frame.Ciphertext); got != g.CiphertextHex {
 		t.Fatalf("ciphertext = %s, want %s", got, g.CiphertextHex)
 	}
-	open, err := OpenRelayPayload(frame, key, []byte(g.AAD))
+	open, err := OpenRelayPayload(frame, key, goldenAAD(t, g))
 	if err != nil {
 		t.Fatalf("OpenRelayPayload: %v", err)
 	}
@@ -69,11 +78,11 @@ func TestOpenRelayPayload_RejectsWrongKey(t *testing.T) {
 	other := make([]byte, 32)
 	copy(other, key)
 	other[0] ^= 0xff
-	frame, err := SealRelayPayload([]byte(g.Plaintext), "kv-1", key, []byte(g.AAD), bytes.NewReader([]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12}))
+	frame, err := SealRelayPayload([]byte(g.Plaintext), "kv-1", key, goldenAAD(t, g), bytes.NewReader([]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12}))
 	if err != nil {
 		t.Fatalf("SealRelayPayload: %v", err)
 	}
-	if _, err := OpenRelayPayload(frame, other, []byte(g.AAD)); err == nil {
+	if _, err := OpenRelayPayload(frame, other, goldenAAD(t, g)); err == nil {
 		t.Fatal("expected OpenRelayPayload to fail closed with the wrong key")
 	}
 }
@@ -86,7 +95,7 @@ func TestOpenRelayPayload_RejectsTamperedCiphertext(t *testing.T) {
 		Nonce:      []byte(strings.Repeat("\x00", 12)),
 		Ciphertext: []byte("tampered-aaaaaaaaaaaaaaaaaaaa"),
 	}
-	if _, err := OpenRelayPayload(frame, key, []byte(g.AAD)); err == nil {
+	if _, err := OpenRelayPayload(frame, key, goldenAAD(t, g)); err == nil {
 		t.Fatal("expected OpenRelayPayload to fail closed on tampered ciphertext")
 	}
 }
@@ -140,8 +149,137 @@ func TestGoldenAssociatedDataObservedByRelayConnector(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Negotiate: %v", err)
 	}
-	if got := string(rec.frame.AssociatedData); got != g.AAD {
-		t.Fatalf("associated data = %q, want %q", got, g.AAD)
+	if got := hex.EncodeToString(rec.frame.AssociatedData); got != g.AADHex {
+		t.Fatalf("associated data = %s, want %s", got, g.AADHex)
+	}
+}
+
+// TestAssociatedDataBoundaryCollision is the regression for the boundary-
+// ambiguous pipe join: two distinct field tuples that collided under the old
+// encoding must produce distinct associated data under length-delimiting.
+func TestAssociatedDataBoundaryCollision(t *testing.T) {
+	mkIdent := func(tenant, gateway, spiffe string) Identity {
+		return Identity{TenantID: tenant, GatewayID: gateway, SPIFFEID: spiffe}
+	}
+	// ("a|b","c") vs ("a","b|c") across the partner-link/gateway boundary.
+	a := relayPayloadAssociatedData("a|b", mkIdent("t", "c", "spiffe://x"), mkIdent("t", "g", "spiffe://y"))
+	b := relayPayloadAssociatedData("a", mkIdent("t", "b|c", "spiffe://x"), mkIdent("t", "g", "spiffe://y"))
+	if bytes.Equal(a, b) {
+		t.Fatal("distinct field tuples produced identical associated data")
+	}
+	// Separator characters inside any single field must not shift boundaries.
+	c := relayPayloadAssociatedData("part", mkIdent("ten|ant", "gw", "spiffe://x"), mkIdent("t", "g", "spiffe://y"))
+	d := relayPayloadAssociatedData("part", mkIdent("ten", "ant|gw", "spiffe://x"), mkIdent("t", "g", "spiffe://y"))
+	if bytes.Equal(c, d) {
+		t.Fatal("separator-in-field tuples produced identical associated data")
+	}
+	// Encoding is deterministic: same tuple, same bytes.
+	e := relayPayloadAssociatedData("part", mkIdent("t", "g", "spiffe://x"), mkIdent("t", "g", "spiffe://y"))
+	f := relayPayloadAssociatedData("part", mkIdent("t", "g", "spiffe://x"), mkIdent("t", "g", "spiffe://y"))
+	if !bytes.Equal(e, f) {
+		t.Fatal("identical tuples produced different associated data")
+	}
+}
+
+// hostileConnector fails OpenDirect/OpenRelay with errors carrying private
+// topology a sanitized public Result must never repeat.
+type hostileConnector struct {
+	err error
+}
+
+func (h *hostileConnector) OpenDirect(_ context.Context, _ DirectRequest) (DirectSession, error) {
+	return DirectSession{}, h.err
+}
+
+func (h *hostileConnector) OpenRelay(_ context.Context, _ RelayRequest) (RelaySession, error) {
+	return RelaySession{}, h.err
+}
+
+func assertSanitizedResult(t *testing.T, result Result, secrets ...string) {
+	t.Helper()
+	for _, secret := range secrets {
+		if secret == "" {
+			continue
+		}
+		if strings.Contains(result.ErrorMessage, secret) {
+			t.Errorf("public ErrorMessage %q leaks %q", result.ErrorMessage, secret)
+		}
+		if strings.Contains(result.ErrorCode, secret) {
+			t.Errorf("public ErrorCode %q leaks %q", result.ErrorCode, secret)
+		}
+	}
+	if strings.TrimSpace(result.ErrorMessage) == "" {
+		t.Error("public ErrorMessage must be a non-empty fixed message")
+	}
+}
+
+func TestDirectDialErrorSanitized(t *testing.T) {
+	leak := errors.New("dial tcp 10.244.1.7:8443: connect: connection refused (endpoint relay.internal:4101 spiffe://builders-net/internal)")
+	n := NewNegotiator(&hostileConnector{err: leak}, nil)
+	result, err := n.Negotiate(context.Background(), Request{
+		PartnerLinkID:          "part",
+		LocalIdentity:          Identity{TenantID: "t", GatewayID: "g", SPIFFEID: "spiffe://g"},
+		ExpectedRemoteIdentity: Identity{TenantID: "t", GatewayID: "g", SPIFFEID: "spiffe://g"},
+		Policy:                 Policy{DirectMode: DirectModeRequired},
+	})
+	if err == nil {
+		t.Fatal("expected the raw connector cause on the local-diagnostics error return")
+	}
+	if !strings.Contains(err.Error(), "10.244.1.7") {
+		t.Errorf("local error return should retain the diagnostic cause, got %v", err)
+	}
+	if result.State != StateDirectUnavailable || result.ErrorCode != ErrorDirectUnavailable {
+		t.Fatalf("state = %q code = %q, want direct_unavailable", result.State, result.ErrorCode)
+	}
+	if result.ErrorMessage != "direct transport unavailable" {
+		t.Errorf("ErrorMessage = %q, want the fixed sanitized message", result.ErrorMessage)
+	}
+	assertSanitizedResult(t, result, "10.244.1.7", "192.168.", "relay.internal:4101", "spiffe://builders-net/internal")
+}
+
+func TestRelaySealErrorSanitized(t *testing.T) {
+	n := NewNegotiator(nil, &relayRecorder{})
+	result, err := n.Negotiate(context.Background(), Request{
+		PartnerLinkID:          "part",
+		LocalIdentity:          Identity{TenantID: "t", GatewayID: "g", SPIFFEID: "spiffe://g"},
+		ExpectedRemoteIdentity: Identity{TenantID: "t", GatewayID: "g", SPIFFEID: "spiffe://g"},
+		Policy:                 Policy{DirectMode: DirectModeDisabled, RelayFallbackAllowed: true},
+		BootstrapServers:       []BootstrapServer{{Endpoint: "10.0.0.9:443", TrustRootRef: "tr", RendezvousNamespace: "ns"}},
+		BusinessPayload:        []byte("payload"),
+		RelayPayloadKeyID:      "kv-1",
+		RelayPayloadKey:        []byte("short"),
+	})
+	if err == nil {
+		t.Fatal("expected the seal cause on the local-diagnostics error return")
+	}
+	if result.State != StateRelayUnavailable || result.ErrorCode != ErrorRelayPayloadEncrypted {
+		t.Fatalf("state = %q code = %q, want relay unavailable/encryption failed", result.State, result.ErrorCode)
+	}
+	if result.ErrorMessage != "relay payload encryption failed" {
+		t.Errorf("ErrorMessage = %q, want the fixed sanitized message", result.ErrorMessage)
+	}
+	// The configured endpoint must not surface even though the relay path
+	// touches it; the seal failure message carries key-size detail instead.
+	assertSanitizedResult(t, result, "10.0.0.9", "invalid key size")
+}
+
+// TestMatchesExpectedIdentity_RequiresCryptographicBinding pins the
+// fail-closed binding rule: tenant/gateway alone (even with display-level
+// service fields) never matches; SPIFFE ID or fingerprint must be pinned.
+func TestMatchesExpectedIdentity_RequiresCryptographicBinding(t *testing.T) {
+	subjectOnly := Identity{TenantID: "t", GatewayID: "g", Subject: "CN=gw", ServicePrincipalID: "sp"}
+	if MatchesExpectedIdentity(subjectOnly, subjectOnly) {
+		t.Error("tenant/gateway plus display-level fields must not match without a cryptographic binding")
+	}
+	fpBound := Identity{TenantID: "t", GatewayID: "g", FingerprintSHA256: "ab12"}
+	if !MatchesExpectedIdentity(fpBound, fpBound) {
+		t.Error("pinned fingerprint binding must match on equal values")
+	}
+	if MatchesExpectedIdentity(
+		Identity{TenantID: "t", GatewayID: "g", FingerprintSHA256: "ab12"},
+		Identity{TenantID: "t", GatewayID: "g", FingerprintSHA256: "cd34"},
+	) {
+		t.Error("mismatched fingerprint binding must not match")
 	}
 }
 
