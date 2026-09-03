@@ -183,11 +183,12 @@
       <b2b:metadata-endpoints-denied>true</b2b:metadata-endpoints-denied>
     </b2b:sandboxed-agent-runtime>
 
-    <b2b:admin-portal id="comp.builders-portal" key="builders-portal" name="Builders Admin Portal" status="accepted" revision="2" source-pointer="github.com/b2bautopilot/xx-builders-portal">
-      <bay:description>Next.js 16 pure gRPC admin portal with zero direct SQL.</bay:description>
+    <b2b:admin-portal id="comp.builders-portal" key="builders-portal" name="Builders Admin Portal" status="accepted" revision="3" source-pointer="github.com/b2bautopilot/xx-builders-portal">
+      <bay:description>Next.js 16 pure gRPC admin portal with zero direct SQL and strict BFF Command Architecture.</bay:description>
       <b2b:framework>Next.js 16 / React 19</b2b:framework>
       <b2b:direct-sql-permitted>false</b2b:direct-sql-permitted>
       <b2b:grpc-client-mode>pure-grpc-9090</b2b:grpc-client-mode>
+      <b2b:command-architecture>bff-command-envelope.v1</b2b:command-architecture>
     </b2b:admin-portal>
 
     <b2b:operator-cockpit id="comp.builders-hub" key="builders-hub" name="Builders Hub Operator Cockpit" status="accepted" revision="2" source-pointer="github.com/b2bautopilot/xx-builders-hub">
