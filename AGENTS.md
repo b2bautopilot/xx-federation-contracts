@@ -54,6 +54,13 @@ Every change in this repository must preserve the following core invariants:
 - `go.mod` must remain completely self-contained with **zero local `replace` directives**.
 - Dependencies must be strictly scoped to standard libraries and essential vetted packages (`google.golang.org/grpc`, `golang.org/x/crypto`, `github.com/google/uuid`).
 
+### Invariant 6: Pure Container Topology & Strict VM Prohibition
+- All enterprise simulation services across AWS, Azure, and GCP must execute strictly on serverless container runtimes:
+  - **AWS**: AWS ECS Fargate (`control`, `gateway`, `builder1`, `builder2`, and `dev-awsrelay-service`). Zero EC2 virtual machines or EBS volumes.
+  - **Azure**: Azure Container Apps (ACA) & Azure Container Instances (ACI) (`control`, `gateway`, `builder1`, `builder2`, and `dev-azurerelay-aci`). Zero persistent compute VMs.
+  - **GCP**: Google Cloud Run (v2) serverless services (`control`, `gateway`, `builder1`, `builder2`). Zero host compute VMs (only single `dev-gcprelay` VM exception permitted for direct raw TCP port 4101 ingress).
+- Any infrastructure change proposing compute VMs for gateway, control plane, or builder daemons is an adversarial regression violating sealed **Revision 6** (`spec/b2b-federation-spec-v1.xml`).
+
 ---
 
 ## 3. Directory & Package Layout
