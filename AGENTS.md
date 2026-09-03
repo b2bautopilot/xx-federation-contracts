@@ -67,6 +67,7 @@ Every change in this repository must preserve the following core invariants:
 
 ```
 xx-federation-contracts/
+├── api/proto/builders/v1/          # Facade IDL projections (federation.proto, common.proto)
 ├── apperrors/                      # Shared error taxonomy & codes
 │   └── errors.go
 ├── contracts/                      # Inter-enterprise contract definitions
@@ -87,9 +88,17 @@ xx-federation-contracts/
 │   │   ├── discovery.go
 │   │   ├── exchange.go
 │   │   └── *_test.go
+│   ├── facade/                     # Facade vocabulary: exchange states, failure classes, binding matchers
+│   ├── federationstate/            # Federation state vocabularies & usability predicates
+│   ├── orgregistry/                # Rendezvous ids, presence-ref, intake policy & decisions
+│   ├── relaywire/                  # Payload-blind relay rendezvous control frames
+│   ├── transport/                  # Gateway-to-gateway transport & AES-GCM relay sealing
 │   └── servicecatalog/             # Partner-visible service registry schemas
 │       ├── servicecatalog.go
 │       └── servicecatalog_test.go
+├── gatewaycert/ (+testonly/)       # Certificate planes, SPIFFE builders, provider contract
+├── gatewaypool/                    # Gateway pool coordinator lease vocabulary
+├── gatewayregistration/            # relay-mesh-registration.v0 envelopes, JCS canonicalisation
 ├── identity/                       # SPIFFE identity, mTLS credentials, CA & CSR
 │   ├── certcheck.go
 │   ├── certissue.go
@@ -106,6 +115,8 @@ xx-federation-contracts/
 │   ├── production_evidence.go
 │   ├── release.go
 │   └── *_test.go
+├── scripts/                        # validate-spec.py, check-projections.py
+├── testdata/parity/                # Golden compatibility vectors + paritygen replays
 ├── go.mod
 ├── go.sum
 ├── README.md

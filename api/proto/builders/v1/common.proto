@@ -1,0 +1,64 @@
+syntax = "proto3";
+
+package builders.v1;
+
+option go_package = "github.com/b2bautopilot/xyz-b2b/services/builders-net/gen/builders/v1;buildersv1";
+
+message ErrorInfo {
+  string code = 1;
+  string message = 2;
+  string layer = 3;
+  // domain is the fully-qualified owning subsystem that produced the error
+  // (e.g. `builders-net/auth`, `builders-net/admin`, `builders-net/store`).
+  // Additive field (docs/design/portal-sql-to-rpc-inventory.md S5 error
+  // taxonomy); `layer` stays the short legacy apperrors.Error.Layer value and
+  // is NOT renamed, so every existing producer/consumer keeps working.
+  string domain = 4;
+  // reason is the stable, machine-readable SCREAMING_SNAKE_CASE cause token
+  // (e.g. `AUTH_REQUIRED`, `TENANT_NOT_FOUND_OR_UNAUTHORIZED`,
+  // `ADMIN_ROLE_REQUIRED`, `EXECUTION_MODE_REQUIRED`, `MAX_AGE_OUT_OF_BOUNDS`,
+  // `IDEMPOTENCY_KEY_REQUIRED`, `LAST_ADMIN_LOCKOUT_FORBIDDEN`,
+  // `SESSION_NOT_FOUND`, `DATABASE_UNAVAILABLE`). Additive field; callers must
+  // branch on `code`+`reason`, never on `message`.
+  string reason = 5;
+}
+
+// WorkloadInfo describes a single builders-net-prefixed container observed
+// on a host by `podman ps`. Lives in common.proto because both agent.proto
+// (the agent reports them) and control.proto (the backend joins them
+// against session rows) reference the type.
+message WorkloadInfo {
+  // runtime_id is the podman container ID.
+  string runtime_id = 1;
+  // container_name is the deterministic name from podmanContainerName (e.g.
+  // `builders-net-019e02a2-e3a-92c03adb73d9`). The backend extracts the
+  // session prefix to join against the sessions table.
+  string container_name = 2;
+  // image is the container image reference.
+  string image = 3;
+  // state is the podman lifecycle state (running, exited, created, etc.).
+  string state = 4;
+  // health is the podman health-check status (healthy, unhealthy, starting,
+  // or empty if no health check is configured).
+  string health = 5;
+  // session_id is the value of the `builders.net/session_id` label, if
+  // present. Empty for non-builders-net containers (which the agent should
+  // already have filtered out by name prefix).
+  string session_id = 6;
+  // workload_id is the value of the `builders.net/workload_id` label.
+  string workload_id = 7;
+  // tenant_id is the value of the `builders.net/tenant_id` label.
+  string tenant_id = 8;
+  // project_id is the value of the `builders.net/project_id` label.
+  string project_id = 9;
+  // node_id is the value of the `builders.net/node_id` label.
+  string node_id = 10;
+  // created_at_ms is the container creation time in epoch milliseconds.
+  int64 created_at_ms = 11;
+  // memory_usage_bytes is the container's current resident-set / cgroup
+  // memory usage as reported by `podman stats --no-stream` at the moment
+  // the agent enumerated workloads. Zero means the agent has no fresh
+  // measurement (e.g. `podman stats` failed, or the container is not
+  // running). Hub renders this as `xx MB` next to each container row.
+  int64 memory_usage_bytes = 12;
+}
