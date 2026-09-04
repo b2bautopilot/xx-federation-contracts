@@ -32,6 +32,7 @@ PROJECTIONS = [
     "api/proto/builders/v1/federation.proto",
     "api/proto/builders/v1/common.proto",
     "api/proto/builders/v1/orchestration.proto",
+    "api/proto/builders/v1/attachment.proto",
 ]
 NS = {"bay": "urn:baylife:system-specification:4.0"}
 

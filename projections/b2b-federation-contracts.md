@@ -1,6 +1,6 @@
 # B2B Federation Contracts — Authoritative Catalog
 
-Spec version 1.7.0 (accepted). Generated deterministically from
+Spec version 1.8.0 (accepted). Generated deterministically from
 spec/b2b-federation-spec-v1.xml — do not edit by hand.
 
 ## Components
@@ -11,9 +11,9 @@ spec/b2b-federation-spec-v1.xml — do not edit by hand.
 | comp.x-mesh | userspace-wireguard-mesh | x-mesh WireGuard Substrate | accepted | 3 |
 | comp.federation-relay | payload-blind-relay | Payload-Blind Relay Cells | accepted | 2 |
 | comp.federation-gateway | enterprise-airlock-gateway | Enterprise Gateway Airlock | accepted | 2 |
-| comp.builders-control | sovereign-control-plane | Sovereign Control Plane | accepted | 3 |
-| comp.builders-agent | sandboxed-agent-runtime | Workstation Agent Runtime | accepted | 3 |
-| comp.builders-portal | admin-portal | Builders Admin Portal | accepted | 4 |
+| comp.builders-control | sovereign-control-plane | Sovereign Control Plane | accepted | 4 |
+| comp.builders-agent | sandboxed-agent-runtime | Workstation Agent Runtime | accepted | 4 |
+| comp.builders-portal | admin-portal | Builders Admin Portal | accepted | 5 |
 | comp.builders-hub | operator-cockpit | Builders Hub Operator Cockpit | accepted | 2 |
 | comp.sim-infra | simulation-infrastructure | Simulation Infrastructure | accepted | 5 |
 
@@ -51,15 +51,15 @@ Source: `github.com/b2bautopilot/xx-federation-gateway`
 
 ### comp.builders-control
 
-Sole owner of Postgres storage with 57 migrations and fail-closed schema checks. Authoritative orchestration/attachment ledger and server projection for truthful multi-agent runs (issue #19).
+Sole owner of Postgres storage with 60 code-only migrations and fail-closed schema checks. Authoritative orchestration/attachment ledger and complete typed server projection for truthful multi-agent runs (issues #19, #21). Migration target correction: revision 9 declared 57 while downstream had already integrated 58 (000058_orchestration_ledger) and held 59 (000059_attachment_custody) code-only; this seal serves 58 orchestration ledger, 59 attachment custody, and planned migration 60 durable runtime/observation projection (entity filename unassigned) as a code-only target — no live database was migrated by this contracts change.
 
-Fields: `grpc-endpoint=127.0.0.1:9090`, `http-endpoint=127.0.0.1:8080`, `postgres-migrations-count=57`, `advisory-lock-hex=0x6232626d69677261`, `orchestration-ledger=run/task/event ledger with ordered observation stream, server-assigned sequence and visibility, and audit hash chain (contracts/orchestration)`, `attachment-ledger=content-addressed attachment objects with scoped fetch/return capabilities; events carry refs only, never bytes (contracts/attachment)`
+Fields: `grpc-endpoint=127.0.0.1:9090`, `http-endpoint=127.0.0.1:8080`, `postgres-migrations-count=60`, `advisory-lock-hex=0x6232626d69677261`, `orchestration-ledger=run/task/event ledger with ordered observation stream, server-assigned sequence and visibility, and audit hash chain (contracts/orchestration)`, `attachment-ledger=content-addressed attachment objects with scoped fetch/return capabilities; events carry refs only, never bytes (contracts/attachment)`
 
 Source: `github.com/b2bautopilot/xx-builders-net`
 
 ### comp.builders-agent
 
-Containerized agent supervisor serving 16 coordination_* MCP tools on rootless podman overlay. Agent Kit container participant mode (one identity/session/container per PM, builder, and reviewer slot) with immutable runtime provenance verified before use (issue #19).
+Containerized agent supervisor serving 16 coordination_* MCP tools on rootless podman overlay. Agent Kit container participant mode (one identity/session/container per PM, builder, and reviewer slot) with immutable runtime provenance verified before use (issue #19). Provenance registers and slots bind only through authenticated control operations (RegisterProvenance, BindParticipant, UpdateParticipantStatus) with identity resolved from the authenticated context, never browser-asserted (issue #21).
 
 Fields: `mcp-socket-port=9210`, `supported-sandboxes=podman,apple_container,wsl2_containerd,gvisor`, `graph-driver-required=overlay`, `metadata-endpoints-denied=true`, `participant-mode=agentkit-container-participant`, `runtime-provenance=immutable OCI, Agent Kit, CLI, model, provider, network-policy and spec evidence verified against pins (contracts/provenance)`
 
@@ -67,7 +67,7 @@ Source: `github.com/b2bautopilot/xx-builders-agent`
 
 ### comp.builders-portal
 
-Next.js 16 pure gRPC admin portal with zero direct SQL and strict BFF Command Architecture. Typed observation projection and BFF command evidence only; no direct ledger access (issue #19).
+Next.js 16 pure gRPC admin portal with zero direct SQL and strict BFF Command Architecture. Typed observation projection and BFF command evidence only; no direct ledger access (issue #19). Renders only the complete typed GetRun observation snapshot (run, roster with participant state, task DAG, provenance, attachment evidence, server counts, degraded/incomplete/cursor) and never supplies descriptors or safety verdicts (issue #21).
 
 Fields: `framework=Next.js 16 / React 19`, `direct-sql-permitted=false`, `grpc-client-mode=pure-grpc-9090`, `command-architecture=bff-command-envelope.v1`, `observation-projection=partner-safe allowlisted event projection with cursor-resumed watch and explicit degraded/incomplete status (contracts/orchestration)`
 
@@ -95,8 +95,8 @@ Source: `github.com/b2bautopilot/xx-sim-infra`
 | --- | --- | --- | --- | --- | --- |
 | rel.gateway-dials-relay | federation-transport-link | comp.federation-gateway | comp.federation-relay | accepted | 3 |
 | rel.gateway-connects-control | control-facade-link | comp.federation-gateway | comp.builders-control | accepted | 2 |
-| rel.agent-connects-control | agent-bidi-stream | comp.builders-agent | comp.builders-control | accepted | 2 |
-| rel.portal-dials-control | client-rpc-link | comp.builders-portal | comp.builders-control | accepted | 2 |
+| rel.agent-connects-control | agent-bidi-stream | comp.builders-agent | comp.builders-control | accepted | 3 |
+| rel.portal-dials-control | client-rpc-link | comp.builders-portal | comp.builders-control | accepted | 3 |
 | rel.hub-dials-control | client-rpc-link | comp.builders-hub | comp.builders-control | accepted | 1 |
 
 ### rel.gateway-dials-relay
@@ -128,21 +128,26 @@ Gateways call the local control plane via the narrow FederationService facade on
 
 ### rel.agent-connects-control
 
-Workstation agents connect to control plane over ConnectAgent / ConnectRuntime. The control owns the run/task/event/attachment ledger and ordered observation stream; agents join as authenticated Agent Kit container participants with immutable runtime provenance; attachment fetch and return happen by scoped capability carrying refs only, never bytes. Relays stay payload-blind: no orchestration semantics are added to relay cells.
+Workstation agents connect to control plane over ConnectAgent / ConnectRuntime. The control owns the run/task/event/attachment ledger and ordered observation stream; agents join as authenticated Agent Kit container participants with immutable runtime provenance; attachment fetch and return happen by scoped capability carrying refs only, never bytes. Participant slots proposed by browsers bind to live sessions only through authenticated Bind/Update operations with identity from the authenticated context; provenance registers with server-assigned ids; attachment custody moves through the scoped AttachmentService operations defined here. Relays stay payload-blind: no orchestration semantics are added to relay cells (issue #21).
 
 - evidence `orchestration-run-ledger` -> `artifact.contracts.orchestration-ledger`
 - evidence `agent-telemetry` -> `artifact.contracts.orchestration`
 - evidence `attachment-capability` -> `artifact.contracts.attachment`
 - evidence `runtime-provenance` -> `artifact.contracts.provenance`
+- evidence `participant-lifecycle` -> `artifact.contracts.orchestration-projection`
+- evidence `provenance-binding` -> `artifact.contracts.orchestration-proto`
+- evidence `attachment-custody` -> `artifact.contracts.attachment-proto`
 
 ### rel.portal-dials-control
 
-Next.js Portal calls builders-control on gRPC :9090 with zero direct SQL. The portal sends BFF command/query envelopes and reads the typed observation projection with cursor-resumed watch; browser actor identity comes from the authenticated control context, never request fields, and every reply carries a signed audit receipt or an explicit degraded/incomplete status.
+Next.js Portal calls builders-control on gRPC :9090 with zero direct SQL. The portal sends BFF command/query envelopes and reads the typed observation projection with cursor-resumed watch; browser actor identity comes from the authenticated control context, never request fields, and every reply carries a signed audit receipt or an explicit degraded/incomplete status. The portal renders only the complete typed GetRunResponse snapshot and server-evaluated attachment evidence; it supplies no descriptor and no safety verdict (issue #21).
 
 - evidence `bff-command-envelope` -> `artifact.contracts.orchestration-bff`
 - evidence `observation-stream` -> `artifact.contracts.orchestration-visibility`
 - evidence `attachment-evidence` -> `artifact.contracts.attachment`
 - evidence `orchestration-idl` -> `artifact.contracts.orchestration-proto`
+- evidence `observation-projection` -> `artifact.contracts.orchestration-projection`
+- evidence `attachment-evidence-projection` -> `artifact.contracts.attachment-proto`
 
 ### rel.hub-dials-control
 
@@ -168,13 +173,18 @@ Flutter Hub reconciles snapshots against builders-control.
 | artifact.contracts.gatewaycert-provider | gatewaycert/provider.go | contract | b0f62df9af41596ffef1b248e92c06f40b183538a939e2d43a9003e425cf9cd3 |
 | artifact.contracts.gatewaypool | gatewaypool/gatewaypool.go | contract | fdd68bb440d70652bb04cb36bd71cac38b1f653ff44927b53c92151239403e5e |
 | artifact.contracts.relayavailability | contracts/relayavailability/availability.go | contract | f7868c1d3db0093fd7dc1760715480041418ba24a2085f5fdb2fe9175f7c1a1a |
-| artifact.contracts.orchestration | contracts/orchestration/orchestration.go | contract | f0cbfaff3e8df120115be1882bf01a85ce2990759fa6fc533d70f7a545aacfd5 |
-| artifact.contracts.orchestration-ledger | contracts/orchestration/ledger.go | contract | 81cd7adcf4717ed92fbe851570998f31411b661b0d8cad95bfb8c5668b4df4de |
+| artifact.contracts.orchestration | contracts/orchestration/orchestration.go | contract | 0ee9cfabf1458aefdafd4fbac235edae40c0de85b779979d2ec7c2b698fbef86 |
+| artifact.contracts.orchestration-ledger | contracts/orchestration/ledger.go | contract | 57c0d3b20c41315b9789e6210d8349ac80c4c71cb6f17070d00d48f194aebfa6 |
+| artifact.contracts.orchestration-projection | contracts/orchestration/projection.go | contract | 78e139a4c9c55bf790068605e30c7cdbd55d65498fb65887d61319007505682f |
+| artifact.contracts.orchestration-slots | contracts/orchestration/slots.go | contract | f422122f4e91e88ef86ef12d5c2e1d6b3bd71c3d9fdb1721c33a8a266de057fe |
+| artifact.contracts.orchestration-migration | contracts/orchestration/migration.go | contract | b9a905f1c95e17303eedef21c1bb75024cbaa9818f064a374431f76eac5707b1 |
 | artifact.contracts.orchestration-visibility | contracts/orchestration/visibility.go | contract | d88a1e869c7b1ae165affdfccb6469889bc227a7b103671461b84e92ed49770f |
 | artifact.contracts.orchestration-bff | contracts/orchestration/bff.go | contract | f89a468ee2d1ee53994d3c051598afcb67043339450ef89bb715924328c0f549 |
 | artifact.contracts.attachment | contracts/attachment/attachment.go | contract | 5610d418985921f56c1e79b2cf0bd532b03b22350cd7b6f5bd45d051cb63e463 |
+| artifact.contracts.attachment-lifecycle | contracts/attachment/lifecycle.go | contract | 9d032d7a59808e036ab780da3930c3226fa6815f35880b1a8cd15fe074e5df22 |
 | artifact.contracts.provenance | contracts/provenance/provenance.go | contract | c110915ee41b472faa8c6ffea094b80606544e0025b8513f9adef575b4c717a0 |
-| artifact.contracts.orchestration-proto | api/proto/builders/v1/orchestration.proto | contract | f61306a7052bc32eabb74fe1b5f6ba5c9814077a2ddc6582f0c04e9fcc01f82f |
+| artifact.contracts.orchestration-proto | api/proto/builders/v1/orchestration.proto | contract | 0f7433a154343fb53d663cbcbf81fbcfc414ceadbe4fea6ca6052cb1e314e818 |
+| artifact.contracts.attachment-proto | api/proto/builders/v1/attachment.proto | contract | 2f0fc8fa92241ef5a581a20bded7d2f40cf3d4f43cff992d6cf1019eb9434b38 |
 | artifact.projection.spec-markdown | projections/b2b-federation-contracts.md | projection | derived |
 | artifact.projection.spec-html | projections/b2b-federation-contracts.html | projection | derived |
 | artifact.schema.system-specification | schemas/system-specification-v4.xsd | schema | efb60a221e950a9eb74f705961047055c2cfa40cc269ec6aac8d9131fd45b197 |
@@ -191,3 +201,4 @@ Flutter Hub reconciles snapshots against builders-control.
 - revision 7: Sealed revision 7: contract artifacts and relationship evidence for the gateway-facing wire and facade types (issue #3 item 3); metadata 1.5.0. Semantic-hash computed as for revision 2 (SHA-256 of the xmllint --c14n canonical form with bay:history removed).
 - revision 8: Sealed revision 8: N-1 relay-cell availability and machine-verifiable readiness contract with ordered candidate failover and circuit-only success evidence (issue #15); metadata 1.6.0. Semantic-hash computed as for revision 2 (SHA-256 of the xmllint --c14n canonical form with bay:history removed).
 - revision 9: Sealed revision 9: truthful multi-agent orchestration, observation, attachment, and provenance contracts with the OrchestrationService formal API contract artifact (issue #19); metadata 1.7.0. Semantic-hash computed as for revision 2 (SHA-256 of the xmllint --c14n canonical form with bay:history removed).
+- revision 10: Sealed revision 10: migration target corrected to 60 with the served entity map, and the complete authoritative Live Observation projection with participant lifecycle, authenticated binding, and attachment custody/evidence contracts (issue #21); metadata 1.8.0. Semantic-hash computed as for revision 2 (SHA-256 of the xmllint --c14n canonical form with bay:history removed).

@@ -18,6 +18,7 @@ var projections = []string{
 	"api/proto/builders/v1/federation.proto",
 	"api/proto/builders/v1/common.proto",
 	"api/proto/builders/v1/orchestration.proto",
+	"api/proto/builders/v1/attachment.proto",
 }
 
 func repoRoot(t *testing.T) string {
@@ -113,6 +114,12 @@ func TestSpecProjectionsClean(t *testing.T) {
 		"comp.builders-control", "comp.builders-agent", "comp.builders-portal",
 		"rel.agent-connects-control", "rel.portal-dials-control",
 		"artifact.contracts.orchestration",
+		"artifact.contracts.orchestration-projection",
+		"artifact.contracts.orchestration-slots",
+		"artifact.contracts.orchestration-migration",
+		"artifact.contracts.attachment-lifecycle",
+		"artifact.contracts.attachment-proto",
+		"revision 10",
 	} {
 		if !strings.Contains(string(md), id) {
 			t.Errorf("markdown projection does not mention %s", id)

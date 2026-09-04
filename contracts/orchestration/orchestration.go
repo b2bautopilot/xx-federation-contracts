@@ -284,6 +284,12 @@ type OrchestrationRun struct {
 // AgentParticipant binds one PM/builder/reviewer slot to an authenticated
 // session/workload/container triple plus the assigned task and the digest of
 // its immutable runtime provenance document.
+//
+// Status is the authoritative participant lifecycle state (see
+// projection.go: invited, active, suspended, departed, removed). It is
+// server-assigned through BindParticipant/UpdateParticipantStatus and
+// never browser-asserted. Rows recorded before status existed (revision 9)
+// omit it and normalize explicitly via NormalizeParticipantStatus.
 type AgentParticipant struct {
 	ParticipantID       string `json:"participant_id"`
 	Role                string `json:"role"`
@@ -293,6 +299,7 @@ type AgentParticipant struct {
 	ContainerID         string `json:"container_id"`
 	AssignedTaskID      string `json:"assigned_task_id,omitempty"`
 	RuntimeProvenanceID string `json:"runtime_provenance_id"`
+	Status              string `json:"status,omitempty"`
 }
 
 // OrchestrationTask is one DAG node: dependency ids, assignment, lifecycle,

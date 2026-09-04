@@ -1,5 +1,8 @@
-// Orchestration, observation, attachment, and runtime-provenance contracts
-// for truthful multi-agent orchestration (issue #19, parent epic #18).
+// Orchestration, observation, provenance, and participant-binding contracts
+// for truthful multi-agent orchestration (issue #19, parent epic #18;
+// revision 10 completes the participant lifecycle, the typed GetRun
+// observation projection, and the authenticated binding operations for
+// issue #21).
 //
 // AUTHORITY: the single machine-readable source is
 // spec/b2b-federation-spec-v1.xml. This file is the formal API contract
@@ -10,14 +13,23 @@
 // contracts/attachment, and contracts/provenance are the enforcement
 // implementation of the same sealed contract — not a second source of
 // truth. scripts/check-orchestration-consistency.py mechanically proves the
-// three sides agree (XML linkage plus proto-enum/Go-const equivalence);
-// scripts/check-projections.py pins these bytes to the bay:artifact
-// declaration; any drift fails the gates.
+// sides agree (XML linkage, proto-enum/Go-const equivalence across both
+// IDL files, additive field-number pins, and the migration-target
+// agreement); scripts/check-projections.py pins these bytes to the
+// bay:artifact declaration; any drift fails the gates.
+//
+// Attachment custody descriptors, lifecycle, evidence, and the capability
+// service live authoritatively in api/proto/builders/v1/attachment.proto
+// (artifact.contracts.attachment-proto), imported here — the AttachmentRef
+// message and the direction/scan enums moved there in revision 10 with
+// zero wire change to served RPCs (no revision 9 RPC returned them).
 //
 // The control plane assigns every server field (event id, sequence,
-// timestamp, visibility) and signs every audit receipt. Workloads never
-// assert identity, sequence, or visibility. Relays stay payload-blind: no
-// orchestration semantics travel the relay fabric.
+// timestamp, visibility, participant status/binding, projection counts and
+// cursors) and signs every audit receipt. Workloads never assert identity,
+// sequence, or visibility; browsers never assert participant identity at
+// all. Relays stay payload-blind: no orchestration semantics travel the
+// relay fabric.
 syntax = "proto3";
 
 package builders.v1;
@@ -29,6 +41,8 @@ package builders.v1;
 // contracts/orchestration, contracts/attachment, and contracts/provenance
 // packages, and the architecture authority remains the sealed XML spec.
 option go_package = "github.com/b2bautopilot/xyz-b2b/services/builders-net/gen/builders/v1;buildersv1";
+
+import "builders/v1/attachment.proto";
 
 // RunState is the run lifecycle. Terminal states accept no further events.
 enum RunState {
@@ -95,20 +109,18 @@ enum ObservationVisibility {
   VISIBILITY_PARTNER = 2;
 }
 
-// AttachmentDirection marks an input document versus a returned result.
-enum AttachmentDirection {
-  ATTACHMENT_DIRECTION_UNSPECIFIED = 0;
-  DIRECTION_INPUT = 1;
-  DIRECTION_RETURNED = 2;
-}
-
-// AttachmentScanState gates serving: only CLEAN is fetchable.
-enum AttachmentScanState {
-  ATTACHMENT_SCAN_STATE_UNSPECIFIED = 0;
-  SCAN_PENDING = 1;
-  SCAN_CLEAN = 2;
-  SCAN_QUARANTINED = 3;
-  SCAN_BLOCKED = 4;
+// ParticipantStatus is the closed participant lifecycle. INVITED marks a
+// control-accepted slot with no session bound yet; ACTIVE marks a bound
+// live session; SUSPENDED marks an administratively paused session
+// (resumable to active); DEPARTED and REMOVED are terminal. Unknown states
+// fail closed.
+enum ParticipantStatus {
+  PARTICIPANT_STATUS_UNSPECIFIED = 0;
+  PARTICIPANT_INVITED = 1;
+  PARTICIPANT_ACTIVE = 2;
+  PARTICIPANT_SUSPENDED = 3;
+  PARTICIPANT_DEPARTED = 4;
+  PARTICIPANT_REMOVED = 5;
 }
 
 // ContainerRuntimeKind is the closed placement vocabulary. GCP runs Cloud
@@ -139,7 +151,10 @@ message OrchestrationRun {
 }
 
 // AgentParticipant binds one slot to an authenticated
-// session/workload/container triple plus the provenance reference.
+// session/workload/container triple plus the provenance reference and the
+// authoritative lifecycle status. Session, workload, container, provenance,
+// and status are server-assigned through the authenticated Bind/Update
+// operations, never browser-asserted.
 message AgentParticipant {
   string participant_id = 1;
   ParticipantRole role = 2;
@@ -149,10 +164,12 @@ message AgentParticipant {
   string container_id = 6;
   string assigned_task_id = 7;
   string runtime_provenance_id = 8;
+  ParticipantStatus status = 9;
 }
 
 // OrchestrationTask is one DAG node. It carries no prompts, tool arguments,
-// or reasoning text.
+// or reasoning text. terminal_results counts recorded terminal outcomes so
+// duplicate-terminal rejection is visible to the portal.
 message OrchestrationTask {
   string task_id = 1;
   repeated string depends_on = 2;
@@ -161,6 +178,7 @@ message OrchestrationTask {
   string public_summary = 5;
   string result_ref = 6;
   repeated string attachment_ids = 7;
+  int32 terminal_results = 8;
 }
 
 // OrchestrationEvent is the server-projected record. event_id, seq,
@@ -221,23 +239,33 @@ message RuntimeProvenance {
   bool image_verified = 18;
 }
 
-// AttachmentRef is the event-safe descriptor. No bytes, paths, storage
-// URLs, secrets, or capability values ever appear in observation events.
-message AttachmentRef {
-  string schema_version = 1;
-  string attachment_id = 2;
-  string sha256_hex = 3;
-  int64 size_bytes = 4;
-  string mime = 5;
-  string display_name = 6;
-  AttachmentDirection direction = 7;
-  AttachmentScanState scan_state = 8;
-  string audience = 9;
-  int64 expires_at_ms = 10;
+// ProposedParticipantSlot is the ONLY participant shape a browser may
+// propose: role, agent kind, and optional task assignment. There are no
+// session, workload, container, provenance, or status fields — a proposal
+// cannot carry identity by construction. The control assigns participant
+// ids and records invited status at StartRun; binding happens only through
+// the authenticated BindParticipant operation.
+message ProposedParticipantSlot {
+  ParticipantRole role = 1;
+  string agent_kind = 2;
+  string assigned_task_id = 3;
 }
 
-// BffCommandEnvelope is the single BFF intake shape. actor_id is advisory:
-// the authenticated control context decides the actor and signs the audit
+// StartRunRequest is the typed StartRun intake: command correlation,
+// idempotency, tenant scope, and the browser-proposed slot roster. It
+// carries NO actor identity (the authenticated control context decides the
+// actor) and NO opaque payload bytes: slots are typed here.
+message StartRunRequest {
+  string command_id = 1;
+  string idempotency_key = 2;
+  string tenant_id = 3;
+  repeated ProposedParticipantSlot slots = 4;
+  int64 requested_at_ms = 5;
+}
+
+// BffCommandEnvelope is the BFF intake shape for commands without their
+// own typed request (notably CancelRun). actor_id is advisory: the
+// authenticated control context decides the actor and signs the audit
 // receipt.
 message BffCommandEnvelope {
   string schema_version = 1;
@@ -283,17 +311,150 @@ message WatchEventsResponse {
   bool incomplete = 4;
 }
 
-// OrchestrationService is the BFF command surface. Every mutation is
-// idempotent where marked, every read is tenant-scoped, and every reply
-// carries a signed audit receipt or an explicit degraded status.
+// GetRunRequest is the typed observation query: one run of one tenant,
+// verified against the authenticated context before serving.
+message GetRunRequest {
+  string run_id = 1;
+  string tenant_id = 2;
+}
+
+// ObservationCounts are the server-computed aggregates the BFF/UI renders
+// without synthesizing: roster size and live sessions, task DAG size and
+// terminal states, provenance records, attachment evidence size and the
+// viewer-scoped downloadable count, and the ledger head framing the
+// cursor.
+message ObservationCounts {
+  int64 participants_total = 1;
+  int64 participants_active = 2;
+  int64 tasks_total = 3;
+  int64 tasks_terminal = 4;
+  int64 provenance_total = 5;
+  int64 attachments_total = 6;
+  int64 attachments_downloadable = 7;
+  int64 head_seq = 8;
+}
+
+// GetRunResponse is the complete authoritative observation snapshot: run,
+// complete roster with authoritative participant state, task DAG, runtime
+// provenance records, attachment evidence (descriptors with
+// server-evaluated lifecycle/download decisions, never bytes), counts,
+// explicit degraded/incomplete state, resume cursor, and server projection
+// time. Every identity, sequence, time, visibility, and audit field here
+// is server-owned.
+message GetRunResponse {
+  string schema_version = 1;
+  OrchestrationRun run = 2;
+  repeated AgentParticipant participants = 3;
+  repeated OrchestrationTask tasks = 4;
+  repeated RuntimeProvenance provenance = 5;
+  repeated AttachmentEvidence attachments = 6;
+  ObservationCounts counts = 7;
+  bool degraded = 8;
+  bool incomplete = 9;
+  int64 next_after_seq = 10;
+  int64 projected_at_ms = 11;
+}
+
+// PartnerRunProjection is the ONLY run shape a partner viewer may
+// receive: identity and lifecycle state, head/cursor framing, aggregate
+// counts, partner-audience evidence, and explicit degraded/incomplete
+// state. No roster, task DAG, provenance, session identity, or tenant
+// handles cross this boundary.
+message PartnerRunProjection {
+  string schema_version = 1;
+  string run_id = 2;
+  RunState state = 3;
+  int64 head_seq = 4;
+  int64 next_after_seq = 5;
+  ObservationCounts counts = 6;
+  repeated AttachmentEvidence attachments = 7;
+  bool degraded = 8;
+  bool incomplete = 9;
+  int64 projected_at_ms = 10;
+}
+
+// RegisterProvenanceRequest presents one runtime-provenance document for
+// registration. provenance_id MUST be empty: ids are server-assigned (a
+// caller-asserted id is forgery). Session binding is recorded server-side
+// from the authenticated context, never from request fields.
+message RegisterProvenanceRequest {
+  RuntimeProvenance provenance = 1;
+}
+
+message RegisterProvenanceResponse {
+  string provenance_id = 1;
+}
+
+// BindParticipantRequest binds one invited slot to the caller's live
+// session. Scope selectors only; every identity field comes from the
+// authenticated context.
+message BindParticipantRequest {
+  string run_id = 1;
+  string participant_id = 2;
+}
+
+message BindParticipantResponse {
+  AgentParticipant participant = 1;
+}
+
+// UpdateParticipantStatusRequest moves one bound participant along its
+// lifecycle. The actor comes from context; the transition is validated
+// against the stored entry.
+message UpdateParticipantStatusRequest {
+  string run_id = 1;
+  string participant_id = 2;
+  ParticipantStatus to_status = 3;
+}
+
+message UpdateParticipantStatusResponse {
+  AgentParticipant participant = 1;
+}
+
+// GetProvenanceRequest is the explicit minimal-scope provenance lookup:
+// one run, one tenant, one record. The tenant is verified against the
+// authenticated context before serving.
+message GetProvenanceRequest {
+  string run_id = 1;
+  string tenant_id = 2;
+  string provenance_id = 3;
+}
+
+message GetProvenanceResponse {
+  RuntimeProvenance provenance = 1;
+}
+
+// OrchestrationService is the control command, query, and authenticated
+// binding surface. Browser mutations flow through StartRun (typed slots)
+// and CancelRun; identity always resolves from the authenticated context.
+// Agent/control operations (provenance registration, participant binding,
+// status updates) require an authenticated session context and carry no
+// caller-asserted identity. Every mutation is idempotent where marked,
+// every read is tenant-scoped, and command replies carry a signed audit
+// receipt while query replies carry explicit degraded/incomplete state.
 service OrchestrationService {
-  // StartRun opens a run; replaying the idempotency key returns the
-  // original receipt and creates no second run or container set.
-  rpc StartRun(BffCommandEnvelope) returns (BffCommandReceipt);
+  // StartRun opens a run from typed slot proposals; replaying the
+  // idempotency key returns the original receipt and creates no second
+  // run or container set. Slots record as invited with server-assigned
+  // ids; binding happens through BindParticipant.
+  rpc StartRun(StartRunRequest) returns (BffCommandReceipt);
   // CancelRun moves a live run to its terminal cancelled state.
   rpc CancelRun(BffCommandEnvelope) returns (BffCommandReceipt);
-  // GetRun returns the control-projected run record and roster.
-  rpc GetRun(BffCommandEnvelope) returns (BffCommandReceipt);
+  // GetRun returns the complete authoritative observation snapshot. The
+  // portal renders ONLY these fields and synthesizes nothing.
+  rpc GetRun(GetRunRequest) returns (GetRunResponse);
   // WatchEvents streams the gap-free resumable server sequence.
   rpc WatchEvents(WatchEventsRequest) returns (WatchEventsResponse);
+  // RegisterProvenance registers one runtime-provenance document for the
+  // calling session, assigning its server-owned id after pin validation.
+  rpc RegisterProvenance(RegisterProvenanceRequest) returns (RegisterProvenanceResponse);
+  // BindParticipant binds one invited slot to the caller's live session,
+  // stamping session/workload/container/provenance from context and moving
+  // invited to active.
+  rpc BindParticipant(BindParticipantRequest) returns (BindParticipantResponse);
+  // UpdateParticipantStatus moves one bound participant along its closed
+  // lifecycle (suspend/resume/depart/remove).
+  rpc UpdateParticipantStatus(UpdateParticipantStatusRequest) returns (UpdateParticipantStatusResponse);
+  // GetProvenance serves one provenance record under explicit minimal
+  // scope.
+  rpc GetProvenance(GetProvenanceRequest) returns (GetProvenanceResponse);
 }

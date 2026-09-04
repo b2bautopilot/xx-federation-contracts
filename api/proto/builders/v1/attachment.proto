@@ -1,0 +1,321 @@
+// Attachment custody and scoped-capability service for truthful
+// multi-agent orchestration (issue #21, parent epic #18, spec revision 10).
+//
+// AUTHORITY: the single machine-readable source is
+// spec/b2b-federation-spec-v1.xml. This file is the formal API contract
+// artifact linked and digested there
+// (artifact.contracts.attachment-proto): downstream consumers (notably
+// xx-builders-net, which owns the durable custody store and serves this
+// service) generate from here or consume these bytes byte-identically;
+// nothing is ever copied INTO this repository from a downstream checkout.
+// The Go package contracts/attachment (attachment.go for descriptors and
+// capability guards, lifecycle.go for custody lifecycle and download
+// evidence) is the enforcement implementation of the same sealed contract
+// — not a second source of truth.
+// scripts/check-orchestration-consistency.py mechanically proves the XML,
+// this IDL, and the Go implementation agree (linkage, enum/RPC
+// equivalence, additive field-number pins); scripts/check-projections.py
+// pins these bytes to the bay:artifact declaration; any drift fails the
+// gates.
+//
+// Custody model: the control plane owns every attachment object (opaque
+// id, SHA-256, size, sniffed MIME, sanitized display name, scan state,
+// direction/audience, lifecycle, expiry/retention, audit binding). Agents
+// move bytes ONLY through short-lived single-use capabilities. Capability
+// VALUES appear exactly once (the MintCapability response) and are stored
+// server-side as one-way SHA-256 digests only. Observation events and
+// projections carry AttachmentEvidence values ONLY — never capability
+// tokens, bytes, storage URLs, filesystem paths, or credentials.
+//
+// Identity rule (revision 10 correction): session, workload, container,
+// actor, and provenance identity ALWAYS come from the authenticated
+// control context, never from caller request fields. Mint, put, fetch,
+// and reject requests carry scope selectors (tenant/run/task/attachment)
+// plus intent fields only; the server binds identity from mutual TLS and
+// the roster, and rejects cross-tenant service fail-closed. Tenant ids in
+// requests are scope claims verified against the context, never trusted.
+//
+// The control plane assigns every server field (attachment id on fresh
+// mints, capability value, expiry, scan/lifecycle state, evaluation
+// times) and re-validates digest, size, and sniffed MIME on every fetch.
+syntax = "proto3";
+
+package builders.v1;
+
+// Compatibility-only codegen path, mirroring api/proto/builders/v1/
+// federation.proto by repository convention so downstream generated code
+// lands on the same historical import path. It is not a source-pointer
+// change: the authoritative Go implementation lives in this repository's
+// contracts/attachment package, and the architecture authority remains
+// the sealed XML spec.
+option go_package = "github.com/b2bautopilot/xyz-b2b/services/builders-net/gen/builders/v1;buildersv1";
+
+import "builders/v1/common.proto";
+
+// AttachmentDirection is the closed direction vocabulary. An input
+// document is fetched material; a returned document is produced output
+// bound as a result.
+enum AttachmentDirection {
+  ATTACHMENT_DIRECTION_UNSPECIFIED = 0;
+  DIRECTION_INPUT = 1;
+  DIRECTION_RETURNED = 2;
+}
+
+// AttachmentScanState gates serving: only CLEAN is fetchable.
+enum AttachmentScanState {
+  ATTACHMENT_SCAN_STATE_UNSPECIFIED = 0;
+  SCAN_PENDING = 1;
+  SCAN_CLEAN = 2;
+  SCAN_QUARANTINED = 3;
+  SCAN_BLOCKED = 4;
+}
+
+// AttachmentAudience is the closed audience binding. Tenant-local by
+// default; partner only through the explicit partner-safe projection.
+enum AttachmentAudience {
+  ATTACHMENT_AUDIENCE_UNSPECIFIED = 0;
+  ATTACHMENT_AUDIENCE_TENANT = 1;
+  ATTACHMENT_AUDIENCE_PARTNER = 2;
+}
+
+// CapabilityAction is the single action one capability authorizes.
+// Narrower than the contract's fetch/return scopes by construction: put
+// covers upload and returned-artifact intake, fetch covers the agent fetch
+// leg, download covers the browser download leg. Unknown actions fail
+// closed.
+enum CapabilityAction {
+  CAPABILITY_ACTION_UNSPECIFIED = 0;
+  CAPABILITY_ACTION_PUT = 1;
+  CAPABILITY_ACTION_FETCH = 2;
+  CAPABILITY_ACTION_DOWNLOAD = 3;
+}
+
+// AttachmentLifecycle is the closed custody lifecycle. Entry is OFFERED
+// (fetch intent) or PRODUCED (agent output submitted directly); VERIFIED
+// gates RETURNED. EXPIRED and REJECTED are terminal. Unknown states fail
+// closed.
+enum AttachmentLifecycle {
+  ATTACHMENT_LIFECYCLE_UNSPECIFIED = 0;
+  LIFECYCLE_OFFERED = 1;
+  LIFECYCLE_AUTHORIZED = 2;
+  LIFECYCLE_FETCHED = 3;
+  LIFECYCLE_VERIFIED = 4;
+  LIFECYCLE_PRODUCED = 5;
+  LIFECYCLE_RETURNED = 6;
+  LIFECYCLE_EXPIRED = 7;
+  LIFECYCLE_REJECTED = 8;
+}
+
+// AttachmentDownloadReason is the closed download-decision vocabulary. A
+// positive decision carries AVAILABLE and nothing else; the equivalence is
+// enforced mechanically so a server cannot claim availability while
+// reporting a blocking reason.
+enum AttachmentDownloadReason {
+  ATTACHMENT_DOWNLOAD_REASON_UNSPECIFIED = 0;
+  DOWNLOAD_AVAILABLE = 1;
+  DOWNLOAD_SCAN_PENDING = 2;
+  DOWNLOAD_NOT_CLEAN = 3;
+  DOWNLOAD_EXPIRED = 4;
+  DOWNLOAD_NOT_VERIFIED = 5;
+  DOWNLOAD_NOT_VISIBLE = 6;
+}
+
+// AttachmentRejectVerdict is the closed quarantine vocabulary.
+// QUARANTINE retains bytes but revokes fetch forever; BLOCK discards bytes
+// and retains metadata for audit. Nothing else is accepted.
+enum AttachmentRejectVerdict {
+  ATTACHMENT_REJECT_VERDICT_UNSPECIFIED = 0;
+  REJECT_QUARANTINE = 1;
+  REJECT_BLOCK = 2;
+}
+
+// PutCompletionStatus tells a put retry whether it stored or replayed:
+// STORED on first completion, REPLAYED when the same bytes were already
+// in custody (no duplicate record minted).
+enum PutCompletionStatus {
+  PUT_COMPLETION_STATUS_UNSPECIFIED = 0;
+  PUT_STORED = 1;
+  PUT_REPLAYED = 2;
+}
+
+// AttachmentRef is the event-safe descriptor: opaque id, digest, size,
+// sniffed MIME, sanitized display name, direction, scan state, audience
+// binding, and hard expiry. NEVER carries bytes, paths, storage URLs,
+// secrets, or capability values.
+message AttachmentRef {
+  string schema_version = 1;
+  string attachment_id = 2;
+  string sha256_hex = 3;
+  int64 size_bytes = 4;
+  string mime = 5;
+  string display_name = 6;
+  AttachmentDirection direction = 7;
+  AttachmentScanState scan_state = 8;
+  AttachmentAudience audience = 9;
+  int64 expires_at_ms = 10;
+}
+
+// AttachmentEvidence is the server-evaluated, viewer-scoped evidence for
+// one custody object: its descriptor, custody lifecycle, downloadability
+// decision for the requesting viewer, closed decision reason, and server
+// evaluation time. Viewers read this; they never supply any part of it.
+message AttachmentEvidence {
+  string schema_version = 1;
+  AttachmentRef ref = 2;
+  AttachmentLifecycle lifecycle = 3;
+  bool downloadable = 4;
+  AttachmentDownloadReason reason = 5;
+  int64 evaluated_at_ms = 6;
+}
+
+// MintCapabilityRequest mints one short-lived capability for one action in
+// one direction and audience, scoped to a run (and optionally a task) of
+// the context tenant. Session, workload, role, and actor are bound by the
+// server from the authenticated context and the roster — they are not
+// request fields, so a caller cannot assert another slot's identity.
+// attachment_id binds a fetch/download/return grant to existing custody
+// (empty on a fresh put mint: the server mints the opaque id; set on a
+// resumed put so a chunked retry binds the same in-flight custody).
+// expected_sha256_hex declares the digest the put will produce (set on
+// idempotent put retries so a retry binds the same custody-to-be instead
+// of minting a duplicate; never trusted: completion re-verifies).
+// display_name is the workload-supplied label (sanitized at mint; the
+// sanitized form is the only name ever stored or returned). The
+// idempotency key makes put mints idempotent: replaying the key returns
+// the original grant without minting a duplicate.
+message MintCapabilityRequest {
+  string tenant_id = 1;
+  string run_id = 2;
+  string task_id = 3;
+  AttachmentDirection direction = 4;
+  AttachmentAudience audience = 5;
+  CapabilityAction action = 6;
+  string attachment_id = 7;
+  string expected_sha256_hex = 8;
+  string display_name = 9;
+  string idempotency_key = 10;
+}
+
+message MintCapabilityResponse {
+  // capability_token is the single presentation of the token value. It
+  // never appears in events, refs, logs, or errors.
+  string capability_token = 1;
+  string attachment_id = 2;
+  int64 expires_at_ms = 3;
+  ErrorInfo error = 4;
+}
+
+// PutAttachmentChunk carries one upload chunk under a put capability. The
+// capability token rides ONLY the first message (with the tenant scope
+// for the grant lookup: a digest presented under the wrong tenant fails
+// closed as not found, never as a cross-tenant oracle); later messages
+// carry ordered chunks. mime_hint is advisory only and never trusted:
+// completion sniffs.
+message PutAttachmentChunk {
+  string capability_token = 1;
+  string tenant_id = 2;
+  string file_name = 3;
+  string mime_hint = 4;
+  int32 total_chunks = 5;
+  int32 chunk_index = 6;
+  bytes content = 7;
+}
+
+message PutAttachmentResponse {
+  AttachmentRef attachment_ref = 1;
+  PutCompletionStatus status = 2;
+  ErrorInfo error = 3;
+}
+
+// FetchAttachmentRequest presents a fetch/download capability for one
+// custody object under the context tenant. The server re-validates
+// digest, size, and sniffed MIME on every fetch.
+message FetchAttachmentRequest {
+  string tenant_id = 1;
+  string attachment_id = 2;
+  string capability_token = 3;
+}
+
+message FetchAttachmentChunk {
+  bytes content = 1;
+  AttachmentRef attachment_ref = 2;
+  ErrorInfo error = 3;
+}
+
+// GetAttachmentRefRequest is the explicit minimal-scope descriptor
+// lookup: one tenant, one attachment. The tenant is verified against the
+// authenticated context; audience filtering for viewers happens in the
+// observation projection (AttachmentEvidence), not by caller assertion.
+message GetAttachmentRefRequest {
+  string tenant_id = 1;
+  string attachment_id = 2;
+}
+
+message GetAttachmentRefResponse {
+  AttachmentRef attachment_ref = 1;
+  // evidence carries the server-evaluated lifecycle/download decision for
+  // the calling viewer, so no caller ever needs a separate safety
+  // verdict.
+  AttachmentEvidence evidence = 2;
+  ErrorInfo error = 3;
+}
+
+// RejectAttachmentRequest quarantines or blocks a custody object.
+// Terminal: quarantined objects are never fetchable again. The verdict is
+// a closed enum; reason_code is a bounded operator label only and never
+// authorization input.
+message RejectAttachmentRequest {
+  string tenant_id = 1;
+  string attachment_id = 2;
+  AttachmentRejectVerdict verdict = 3;
+  string reason_code = 4;
+}
+
+message RejectAttachmentResponse {
+  AttachmentRef attachment_ref = 1;
+  ErrorInfo error = 2;
+}
+
+// SweepAttachmentsRequest expires grants, deletes expired custody, and
+// collects orphaned chunk buffers for one tenant. Control-internal
+// maintenance: the caller context must be a control operator session; the
+// server also sweeps on startup (crash recovery), so no capability
+// outlives its expiry.
+message SweepAttachmentsRequest {
+  string tenant_id = 1;
+}
+
+message SweepAttachmentsResponse {
+  int64 expired_grants = 1;
+  int64 deleted_custody = 2;
+  int64 collected_chunks = 3;
+  ErrorInfo error = 4;
+}
+
+// AttachmentService is the control-owned, content-addressed orchestration
+// attachment custody and scoped capability service. Every mutation is
+// idempotent where marked, every read is tenant-scoped to the
+// authenticated context, and descriptors — never bytes, tokens, URLs, or
+// secrets — are the only attachment shape that ever leaves this service
+// except through a presented capability stream.
+service AttachmentService {
+  // MintCapability mints one short-lived capability for one action in one
+  // direction and audience. The token value is returned here and never
+  // again; every later use presents it.
+  rpc MintCapability(MintCapabilityRequest) returns (MintCapabilityResponse);
+  // PutAttachment streams one attachment's chunks under a put capability.
+  // On stream close the server re-validates digest, size, and sniffed
+  // MIME, classifies/scans, and mints custody.
+  rpc PutAttachment(stream PutAttachmentChunk) returns (PutAttachmentResponse);
+  // FetchAttachment streams one attachment's bytes under a fetch/download
+  // capability. The capability burns on the first fully-served body.
+  rpc FetchAttachment(FetchAttachmentRequest) returns (stream FetchAttachmentChunk);
+  // GetAttachmentRef returns the event-safe descriptor plus the
+  // server-evaluated evidence (no bytes, no token).
+  rpc GetAttachmentRef(GetAttachmentRefRequest) returns (GetAttachmentRefResponse);
+  // RejectAttachment quarantines or blocks a custody object.
+  rpc RejectAttachment(RejectAttachmentRequest) returns (RejectAttachmentResponse);
+  // SweepAttachments expires grants, deletes expired custody, and
+  // collects orphaned chunk buffers.
+  rpc SweepAttachments(SweepAttachmentsRequest) returns (SweepAttachmentsResponse);
+}

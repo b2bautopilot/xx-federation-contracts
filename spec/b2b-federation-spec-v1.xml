@@ -5,7 +5,7 @@
   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
   xsi:schemaLocation="urn:baylife:system-specification:4.0 ../schemas/system-specification-v4.xsd urn:b2b:architecture:1.0 ../schemas/b2b-architecture-v1.xsd">
 
-  <bay:metadata system-id="b2b.federation-platform" version="1.7.0" status="accepted" generated-at="2026-09-03T15:40:00-04:00">
+  <bay:metadata system-id="b2b.federation-platform" version="1.8.0" status="accepted" generated-at="2026-09-04T07:30:00Z">
     <bay:title>B2B Autopilot / Builders Net Sovereign Federation Platform</bay:title>
     <bay:summary>Authoritative system architecture specification governing the 9 sovereign repositories, SPIFFE/mTLS airlocks, WireGuard userspace transport, payload-blind relay forwarders, sandboxed MCP agent runtimes, and Order-to-Cash service contracts.</bay:summary>
     <bay:authority>This XML document is the primary architecture authority for all b2bautopilot/xx-* repositories. All runtime changes, schema changes, and contract evolutions must be recorded and sealed in this document.</bay:authority>
@@ -168,18 +168,18 @@
       <b2b:outbound-only>true</b2b:outbound-only>
     </b2b:enterprise-airlock-gateway>
 
-    <b2b:sovereign-control-plane id="comp.builders-control" key="builders-control" name="Sovereign Control Plane" status="accepted" revision="3" source-pointer="github.com/b2bautopilot/xx-builders-net">
-      <bay:description>Sole owner of Postgres storage with 57 migrations and fail-closed schema checks. Authoritative orchestration/attachment ledger and server projection for truthful multi-agent runs (issue #19).</bay:description>
+    <b2b:sovereign-control-plane id="comp.builders-control" key="builders-control" name="Sovereign Control Plane" status="accepted" revision="4" source-pointer="github.com/b2bautopilot/xx-builders-net">
+      <bay:description>Sole owner of Postgres storage with 60 code-only migrations and fail-closed schema checks. Authoritative orchestration/attachment ledger and complete typed server projection for truthful multi-agent runs (issues #19, #21). Migration target correction: revision 9 declared 57 while downstream had already integrated 58 (000058_orchestration_ledger) and held 59 (000059_attachment_custody) code-only; this seal serves 58 orchestration ledger, 59 attachment custody, and planned migration 60 durable runtime/observation projection (entity filename unassigned) as a code-only target — no live database was migrated by this contracts change.</bay:description>
       <b2b:grpc-endpoint>127.0.0.1:9090</b2b:grpc-endpoint>
       <b2b:http-endpoint>127.0.0.1:8080</b2b:http-endpoint>
-      <b2b:postgres-migrations-count>57</b2b:postgres-migrations-count>
+      <b2b:postgres-migrations-count>60</b2b:postgres-migrations-count>
       <b2b:advisory-lock-hex>0x6232626d69677261</b2b:advisory-lock-hex>
       <b2b:orchestration-ledger>run/task/event ledger with ordered observation stream, server-assigned sequence and visibility, and audit hash chain (contracts/orchestration)</b2b:orchestration-ledger>
       <b2b:attachment-ledger>content-addressed attachment objects with scoped fetch/return capabilities; events carry refs only, never bytes (contracts/attachment)</b2b:attachment-ledger>
     </b2b:sovereign-control-plane>
 
-    <b2b:sandboxed-agent-runtime id="comp.builders-agent" key="builders-agent" name="Workstation Agent Runtime" status="accepted" revision="3" source-pointer="github.com/b2bautopilot/xx-builders-agent">
-      <bay:description>Containerized agent supervisor serving 16 coordination_* MCP tools on rootless podman overlay. Agent Kit container participant mode (one identity/session/container per PM, builder, and reviewer slot) with immutable runtime provenance verified before use (issue #19).</bay:description>
+    <b2b:sandboxed-agent-runtime id="comp.builders-agent" key="builders-agent" name="Workstation Agent Runtime" status="accepted" revision="4" source-pointer="github.com/b2bautopilot/xx-builders-agent">
+      <bay:description>Containerized agent supervisor serving 16 coordination_* MCP tools on rootless podman overlay. Agent Kit container participant mode (one identity/session/container per PM, builder, and reviewer slot) with immutable runtime provenance verified before use (issue #19). Provenance registers and slots bind only through authenticated control operations (RegisterProvenance, BindParticipant, UpdateParticipantStatus) with identity resolved from the authenticated context, never browser-asserted (issue #21).</bay:description>
       <b2b:mcp-socket-port>9210</b2b:mcp-socket-port>
       <b2b:supported-sandboxes>podman,apple_container,wsl2_containerd,gvisor</b2b:supported-sandboxes>
       <b2b:graph-driver-required>overlay</b2b:graph-driver-required>
@@ -188,8 +188,8 @@
       <b2b:runtime-provenance>immutable OCI, Agent Kit, CLI, model, provider, network-policy and spec evidence verified against pins (contracts/provenance)</b2b:runtime-provenance>
     </b2b:sandboxed-agent-runtime>
 
-    <b2b:admin-portal id="comp.builders-portal" key="builders-portal" name="Builders Admin Portal" status="accepted" revision="4" source-pointer="github.com/b2bautopilot/xx-builders-portal">
-      <bay:description>Next.js 16 pure gRPC admin portal with zero direct SQL and strict BFF Command Architecture. Typed observation projection and BFF command evidence only; no direct ledger access (issue #19).</bay:description>
+    <b2b:admin-portal id="comp.builders-portal" key="builders-portal" name="Builders Admin Portal" status="accepted" revision="5" source-pointer="github.com/b2bautopilot/xx-builders-portal">
+      <bay:description>Next.js 16 pure gRPC admin portal with zero direct SQL and strict BFF Command Architecture. Typed observation projection and BFF command evidence only; no direct ledger access (issue #19). Renders only the complete typed GetRun observation snapshot (run, roster with participant state, task DAG, provenance, attachment evidence, server counts, degraded/incomplete/cursor) and never supplies descriptors or safety verdicts (issue #21).</bay:description>
       <b2b:framework>Next.js 16 / React 19</b2b:framework>
       <b2b:direct-sql-permitted>false</b2b:direct-sql-permitted>
       <b2b:grpc-client-mode>pure-grpc-9090</b2b:grpc-client-mode>
@@ -275,8 +275,8 @@
       </bay:evidence>
     </b2b:control-facade-link>
 
-    <b2b:agent-bidi-stream id="rel.agent-connects-control" source-ref="comp.builders-agent" target-ref="comp.builders-control" status="accepted" revision="2" source-pointer="github.com/b2bautopilot/xx-federation-contracts/contracts/orchestration">
-      <bay:description>Workstation agents connect to control plane over ConnectAgent / ConnectRuntime. The control owns the run/task/event/attachment ledger and ordered observation stream; agents join as authenticated Agent Kit container participants with immutable runtime provenance; attachment fetch and return happen by scoped capability carrying refs only, never bytes. Relays stay payload-blind: no orchestration semantics are added to relay cells.</bay:description>
+    <b2b:agent-bidi-stream id="rel.agent-connects-control" source-ref="comp.builders-agent" target-ref="comp.builders-control" status="accepted" revision="3" source-pointer="github.com/b2bautopilot/xx-federation-contracts/contracts/orchestration">
+      <bay:description>Workstation agents connect to control plane over ConnectAgent / ConnectRuntime. The control owns the run/task/event/attachment ledger and ordered observation stream; agents join as authenticated Agent Kit container participants with immutable runtime provenance; attachment fetch and return happen by scoped capability carrying refs only, never bytes. Participant slots proposed by browsers bind to live sessions only through authenticated Bind/Update operations with identity from the authenticated context; provenance registers with server-assigned ids; attachment custody moves through the scoped AttachmentService operations defined here. Relays stay payload-blind: no orchestration semantics are added to relay cells (issue #21).</bay:description>
       <bay:evidence key="orchestration-run-ledger" kind="wire-contract" artifact-ref="artifact.contracts.orchestration-ledger">
         <bay:description>Run/task/event lifecycle, typed event vocabulary, server-assigned sequence and visibility, tenant-scoped cursors, and the audit hash chain both sides implement.</bay:description>
       </bay:evidence>
@@ -289,10 +289,19 @@
       <bay:evidence key="runtime-provenance" kind="wire-contract" artifact-ref="artifact.contracts.provenance">
         <bay:description>Immutable OCI, Agent Kit, CLI, model, provider, network-policy, and spec evidence verified against pins with container-only placement (GCP Cloud Run, Azure ACA/ACI, AWS ECS Fargate-only).</bay:description>
       </bay:evidence>
+      <bay:evidence key="participant-lifecycle" kind="wire-contract" artifact-ref="artifact.contracts.orchestration-projection">
+        <bay:description>Closed participant lifecycle (invited, active, suspended, departed, removed) with authoritative server-assigned state; browser slot proposals carry no identity and bind only through authenticated operations.</bay:description>
+      </bay:evidence>
+      <bay:evidence key="provenance-binding" kind="grpc-idl" artifact-ref="artifact.contracts.orchestration-proto">
+        <bay:description>Authenticated provenance registration and participant bind/update RPCs with server-assigned ids and context-derived identity (RegisterProvenance, BindParticipant, UpdateParticipantStatus, GetProvenance).</bay:description>
+      </bay:evidence>
+      <bay:evidence key="attachment-custody" kind="grpc-idl" artifact-ref="artifact.contracts.attachment-proto">
+        <bay:description>Scoped attachment custody and capability RPCs with context-derived identity and reference-only evidence (AttachmentService: mint, put, fetch, lookup, reject, sweep).</bay:description>
+      </bay:evidence>
     </b2b:agent-bidi-stream>
 
-    <b2b:client-rpc-link id="rel.portal-dials-control" source-ref="comp.builders-portal" target-ref="comp.builders-control" status="accepted" revision="2" source-pointer="github.com/b2bautopilot/xx-federation-contracts/contracts/orchestration">
-      <bay:description>Next.js Portal calls builders-control on gRPC :9090 with zero direct SQL. The portal sends BFF command/query envelopes and reads the typed observation projection with cursor-resumed watch; browser actor identity comes from the authenticated control context, never request fields, and every reply carries a signed audit receipt or an explicit degraded/incomplete status.</bay:description>
+    <b2b:client-rpc-link id="rel.portal-dials-control" source-ref="comp.builders-portal" target-ref="comp.builders-control" status="accepted" revision="3" source-pointer="github.com/b2bautopilot/xx-federation-contracts/contracts/orchestration">
+      <bay:description>Next.js Portal calls builders-control on gRPC :9090 with zero direct SQL. The portal sends BFF command/query envelopes and reads the typed observation projection with cursor-resumed watch; browser actor identity comes from the authenticated control context, never request fields, and every reply carries a signed audit receipt or an explicit degraded/incomplete status. The portal renders only the complete typed GetRunResponse snapshot and server-evaluated attachment evidence; it supplies no descriptor and no safety verdict (issue #21).</bay:description>
       <bay:evidence key="bff-command-envelope" kind="wire-contract" artifact-ref="artifact.contracts.orchestration-bff">
         <bay:description>Idempotent start/cancel/query envelopes with context-resolved actors and Ed25519-signed audit receipts.</bay:description>
       </bay:evidence>
@@ -303,7 +312,13 @@
         <bay:description>Attachment refs as observation evidence only: opaque ids, digests, sizes, sniffed MIME, and audience binding; no bytes, paths, storage URLs, secrets, or capability values in events.</bay:description>
       </bay:evidence>
       <bay:evidence key="orchestration-idl" kind="grpc-idl" artifact-ref="artifact.contracts.orchestration-proto">
-        <bay:description>OrchestrationService BFF surface (StartRun, CancelRun, GetRun, WatchEvents) with run, participant, task, event, provenance, attachment, and partner projection messages.</bay:description>
+        <bay:description>OrchestrationService command, query, and authenticated binding surface (StartRun with typed slots, CancelRun, typed GetRun snapshot, WatchEvents, RegisterProvenance, BindParticipant, UpdateParticipantStatus, GetProvenance) with run, participant, task, event, provenance, and partner projection messages.</bay:description>
+      </bay:evidence>
+      <bay:evidence key="observation-projection" kind="wire-contract" artifact-ref="artifact.contracts.orchestration-projection">
+        <bay:description>Complete authoritative GetRun observation snapshot: run, roster with participant state, task DAG, provenance records, attachment evidence, server-computed counts, and explicit degraded/incomplete/cursor state.</bay:description>
+      </bay:evidence>
+      <bay:evidence key="attachment-evidence-projection" kind="grpc-idl" artifact-ref="artifact.contracts.attachment-proto">
+        <bay:description>Typed attachment lifecycle and server-evaluated download evidence projection (AttachmentEvidence with lifecycle, downloadability decision, reason, and evaluation time) served by AttachmentService lookups and the GetRun snapshot.</bay:description>
       </bay:evidence>
     </b2b:client-rpc-link>
 
@@ -639,6 +654,85 @@
         <bay:change path="sha256" old-value="76d354a7c601d9066fc8ab8ea4ab304719ef53db5751efc60a2a725de327fb9e" new-value="a007f2fd976ee6a6d1664f456f0af004798321d89e034c71fc0b87645891a9c8" value-type="string"/>
       </bay:operation>
     </bay:change-set>
+    <bay:change-set id="change-set.b2b-010" status="accepted" base-revision="9" result-revision="10" actor-ref="actor.agent-muse" created-at="2026-09-04T07:30:00Z" accepted-at="2026-09-04T07:30:00Z">
+      <bay:summary>Revision 10 (issue #21, parent epic #18): correct the authoritative control-plane migration target from 57 to 60 with the served downstream entity map, and complete the authoritative Live Observation server projection as one atomic additive unit. Drift correction recorded honestly: revision 9 declared 57 while xx-builders-net main had already integrated 58 (000058_orchestration_ledger) and held 59 (000059_attachment_custody, xx-builders-net PR #23) code-only; this seal serves 58 orchestration ledger, 59 attachment custody, and planned 60 durable runtime/observation projection (entity filename unassigned) as a code-only target — no live database was migrated by this contracts change, downstream retains 59 code-only until separately authorized, and the runtime/observation slice implements planned 60 with the binding/projection APIs sealed here. Adds contracts/orchestration/projection.go (closed participant lifecycle invited/active/suspended/departed/removed with authoritative state and explicit legacy normalization; typed GetRunResponse snapshot with run, complete roster, task DAG, provenance records, attachment evidence, server-computed counts, explicit degraded/incomplete/cursor state with incomplete exactly (next_after_seq &lt; head_seq), deterministic ordering/canonical bytes, and partner-safe redaction), contracts/orchestration/slots.go (browser slot proposals with no identity fields by construction; typed StartRunRequest; ControlContext with context-derived identity; BindParticipant/UpdateParticipantStatus with activation-requires-binding; provenance registration rejecting caller-asserted ids as forgery; minimal-scope GetProvenance lookup), contracts/orchestration/migration.go (target 60 with the entity map), contracts/attachment/lifecycle.go (closed custody lifecycle offered/authorized/fetched/verified/produced/returned/expired/rejected with verified gating returned; server-evaluated AttachmentEvidence with the mechanical downloadable==(reason==available) equivalence and fixed evaluation precedence; closed download-reason, reject-verdict, put-status, and capability-action vocabularies), api/proto/builders/v1/attachment.proto (authoritative AttachmentService IDL: mint/put/fetch/lookup/reject/sweep with custody enums, AttachmentRef, and AttachmentEvidence), and extends api/proto/builders/v1/orchestration.proto (typed StartRunRequest slots, typed GetRun snapshot, ParticipantStatus, provenance/bind/update/provenance-lookup RPCs; AttachmentRef and direction/scan enums moved to attachment.proto with zero served wire change since no revision 9 RPC returned them; AttachmentRef.audience corrected from string to the AttachmentAudience enum before first service). Deliberate fail-closed deltas downstream must absorb from its provisional schema: session/workload/role/project caller assertions removed from capability requests (identity resolves from the authenticated context and roster), reject verdict and put completion are closed enums (not strings), GetAttachmentRefResponse additionally carries server-evaluated evidence, and downstream deletes its local api/proto copy to consume these authoritative bytes. Updates comp.builders-control (3 to 4: target 60 with the entity map), comp.builders-agent (3 to 4: authenticated registration/binding), comp.builders-portal (4 to 5: render-only-the-snapshot), rel.agent-connects-control (2 to 3: participant-lifecycle/provenance-binding/attachment-custody evidence) and rel.portal-dials-control (2 to 3: observation-projection/attachment-evidence-projection evidence). No XSD change required (values, descriptions, and evidence only, under the existing model). Bumps metadata version to 1.8.0 (recorded in this summary, as change-set.b2b-002 did for 1.1.0, because operation target-refs must be declared ids). No cloud, DNS, certificate, credential, product runtime, database migration, or deployment action. All artifact digests are real SHA-256 values, no placeholders.</bay:summary>
+      <bay:operation sequence="1" command="update-artifact" target-ref="artifact.contracts.orchestration" expected-revision="0">
+        <bay:change path="sha256" old-value="f0cbfaff3e8df120115be1882bf01a85ce2990759fa6fc533d70f7a545aacfd5" new-value="0ee9cfabf1458aefdafd4fbac235edae40c0de85b779979d2ec7c2b698fbef86" value-type="string"/>
+      </bay:operation>
+      <bay:operation sequence="2" command="update-artifact" target-ref="artifact.contracts.orchestration-ledger" expected-revision="0">
+        <bay:change path="sha256" old-value="81cd7adcf4717ed92fbe851570998f31411b661b0d8cad95bfb8c5668b4df4de" new-value="57c0d3b20c41315b9789e6210d8349ac80c4c71cb6f17070d00d48f194aebfa6" value-type="string"/>
+      </bay:operation>
+      <bay:operation sequence="3" command="create-artifact" target-ref="artifact.contracts.orchestration-projection" expected-revision="0">
+        <bay:change path="path" new-value="contracts/orchestration/projection.go" value-type="string"/>
+        <bay:change path="media-type" new-value="text/x-go" value-type="string"/>
+        <bay:change path="encoding" new-value="text" value-type="string"/>
+        <bay:change path="sha256" new-value="78e139a4c9c55bf790068605e30c7cdbd55d65498fb65887d61319007505682f" value-type="string"/>
+        <bay:change path="role" new-value="contract" value-type="string"/>
+      </bay:operation>
+      <bay:operation sequence="4" command="create-artifact" target-ref="artifact.contracts.orchestration-slots" expected-revision="0">
+        <bay:change path="path" new-value="contracts/orchestration/slots.go" value-type="string"/>
+        <bay:change path="media-type" new-value="text/x-go" value-type="string"/>
+        <bay:change path="encoding" new-value="text" value-type="string"/>
+        <bay:change path="sha256" new-value="f422122f4e91e88ef86ef12d5c2e1d6b3bd71c3d9fdb1721c33a8a266de057fe" value-type="string"/>
+        <bay:change path="role" new-value="contract" value-type="string"/>
+      </bay:operation>
+      <bay:operation sequence="5" command="create-artifact" target-ref="artifact.contracts.orchestration-migration" expected-revision="0">
+        <bay:change path="path" new-value="contracts/orchestration/migration.go" value-type="string"/>
+        <bay:change path="media-type" new-value="text/x-go" value-type="string"/>
+        <bay:change path="encoding" new-value="text" value-type="string"/>
+        <bay:change path="sha256" new-value="b9a905f1c95e17303eedef21c1bb75024cbaa9818f064a374431f76eac5707b1" value-type="string"/>
+        <bay:change path="role" new-value="contract" value-type="string"/>
+      </bay:operation>
+      <bay:operation sequence="6" command="create-artifact" target-ref="artifact.contracts.attachment-lifecycle" expected-revision="0">
+        <bay:change path="path" new-value="contracts/attachment/lifecycle.go" value-type="string"/>
+        <bay:change path="media-type" new-value="text/x-go" value-type="string"/>
+        <bay:change path="encoding" new-value="text" value-type="string"/>
+        <bay:change path="sha256" new-value="9d032d7a59808e036ab780da3930c3226fa6815f35880b1a8cd15fe074e5df22" value-type="string"/>
+        <bay:change path="role" new-value="contract" value-type="string"/>
+      </bay:operation>
+      <bay:operation sequence="7" command="update-artifact" target-ref="artifact.contracts.orchestration-proto" expected-revision="0">
+        <bay:change path="sha256" old-value="f61306a7052bc32eabb74fe1b5f6ba5c9814077a2ddc6582f0c04e9fcc01f82f" new-value="0f7433a154343fb53d663cbcbf81fbcfc414ceadbe4fea6ca6052cb1e314e818" value-type="string"/>
+      </bay:operation>
+      <bay:operation sequence="8" command="create-artifact" target-ref="artifact.contracts.attachment-proto" expected-revision="0">
+        <bay:change path="path" new-value="api/proto/builders/v1/attachment.proto" value-type="string"/>
+        <bay:change path="media-type" new-value="text/x-protobuf" value-type="string"/>
+        <bay:change path="encoding" new-value="text" value-type="string"/>
+        <bay:change path="sha256" new-value="2f0fc8fa92241ef5a581a20bded7d2f40cf3d4f43cff992d6cf1019eb9434b38" value-type="string"/>
+        <bay:change path="role" new-value="contract" value-type="string"/>
+      </bay:operation>
+      <bay:operation sequence="9" command="update-artifact" target-ref="artifact.projection.spec-markdown" expected-revision="0">
+        <bay:change path="sha256" old-value="754c7906ffb7c9c8cb92a9d2729a7cc0003013323756e9f12fb10f75d4fadddf" new-value="c40b9af3885160b7ae2240caa125b347d40deaf724cf75bd4d398bb04d384d08" value-type="string"/>
+      </bay:operation>
+      <bay:operation sequence="10" command="update-artifact" target-ref="artifact.projection.spec-html" expected-revision="0">
+        <bay:change path="sha256" old-value="27886bcefcded999972070feac27a7ca3710d977aa14786cd69e8fe01a63705c" new-value="4657164ea61dcb6075d0caca5d1717303123323289a29e79b47d392c262e9b56" value-type="string"/>
+      </bay:operation>
+      <bay:operation sequence="11" command="update-component" target-ref="comp.builders-control" expected-revision="3">
+        <bay:change path="description" old-value="Sole owner of Postgres storage with 57 migrations and fail-closed schema checks. Authoritative orchestration/attachment ledger and server projection for truthful multi-agent runs (issue #19)." new-value="Sole owner of Postgres storage with 60 code-only migrations and fail-closed schema checks. Authoritative orchestration/attachment ledger and complete typed server projection for truthful multi-agent runs (issues #19, #21). Migration target correction: revision 9 declared 57 while downstream had already integrated 58 (000058_orchestration_ledger) and held 59 (000059_attachment_custody) code-only; this seal serves 58 orchestration ledger, 59 attachment custody, and planned migration 60 durable runtime/observation projection (entity filename unassigned) as a code-only target — no live database was migrated by this contracts change." value-type="string"/>
+        <bay:change path="postgres-migrations-count" old-value="57" new-value="60" value-type="integer"/>
+        <bay:change path="revision" old-value="3" new-value="4" value-type="integer"/>
+      </bay:operation>
+      <bay:operation sequence="12" command="update-component" target-ref="comp.builders-agent" expected-revision="3">
+        <bay:change path="description" old-value="Containerized agent supervisor serving 16 coordination_* MCP tools on rootless podman overlay. Agent Kit container participant mode (one identity/session/container per PM, builder, and reviewer slot) with immutable runtime provenance verified before use (issue #19)." new-value="Containerized agent supervisor serving 16 coordination_* MCP tools on rootless podman overlay. Agent Kit container participant mode (one identity/session/container per PM, builder, and reviewer slot) with immutable runtime provenance verified before use (issue #19). Provenance registers and slots bind only through authenticated control operations (RegisterProvenance, BindParticipant, UpdateParticipantStatus) with identity resolved from the authenticated context, never browser-asserted (issue #21)." value-type="string"/>
+        <bay:change path="revision" old-value="3" new-value="4" value-type="integer"/>
+      </bay:operation>
+      <bay:operation sequence="13" command="update-component" target-ref="comp.builders-portal" expected-revision="4">
+        <bay:change path="description" old-value="Next.js 16 pure gRPC admin portal with zero direct SQL and strict BFF Command Architecture. Typed observation projection and BFF command evidence only; no direct ledger access (issue #19)." new-value="Next.js 16 pure gRPC admin portal with zero direct SQL and strict BFF Command Architecture. Typed observation projection and BFF command evidence only; no direct ledger access (issue #19). Renders only the complete typed GetRun observation snapshot (run, roster with participant state, task DAG, provenance, attachment evidence, server counts, degraded/incomplete/cursor) and never supplies descriptors or safety verdicts (issue #21)." value-type="string"/>
+        <bay:change path="revision" old-value="4" new-value="5" value-type="integer"/>
+      </bay:operation>
+      <bay:operation sequence="14" command="update-relationship" target-ref="rel.agent-connects-control" expected-revision="2">
+        <bay:change path="description" old-value="Workstation agents connect to control plane over ConnectAgent / ConnectRuntime. The control owns the run/task/event/attachment ledger and ordered observation stream; agents join as authenticated Agent Kit container participants with immutable runtime provenance; attachment fetch and return happen by scoped capability carrying refs only, never bytes. Relays stay payload-blind: no orchestration semantics are added to relay cells." new-value="Workstation agents connect to control plane over ConnectAgent / ConnectRuntime. The control owns the run/task/event/attachment ledger and ordered observation stream; agents join as authenticated Agent Kit container participants with immutable runtime provenance; attachment fetch and return happen by scoped capability carrying refs only, never bytes. Participant slots proposed by browsers bind to live sessions only through authenticated Bind/Update operations with identity from the authenticated context; provenance registers with server-assigned ids; attachment custody moves through the scoped AttachmentService operations defined here. Relays stay payload-blind: no orchestration semantics are added to relay cells (issue #21)." value-type="string"/>
+        <bay:change path="evidence[participant-lifecycle]" new-value="artifact.contracts.orchestration-projection" value-type="string"/>
+        <bay:change path="evidence[provenance-binding]" new-value="artifact.contracts.orchestration-proto" value-type="string"/>
+        <bay:change path="evidence[attachment-custody]" new-value="artifact.contracts.attachment-proto" value-type="string"/>
+        <bay:change path="revision" old-value="2" new-value="3" value-type="integer"/>
+      </bay:operation>
+      <bay:operation sequence="15" command="update-relationship" target-ref="rel.portal-dials-control" expected-revision="2">
+        <bay:change path="description" old-value="Next.js Portal calls builders-control on gRPC :9090 with zero direct SQL. The portal sends BFF command/query envelopes and reads the typed observation projection with cursor-resumed watch; browser actor identity comes from the authenticated control context, never request fields, and every reply carries a signed audit receipt or an explicit degraded/incomplete status." new-value="Next.js Portal calls builders-control on gRPC :9090 with zero direct SQL. The portal sends BFF command/query envelopes and reads the typed observation projection with cursor-resumed watch; browser actor identity comes from the authenticated control context, never request fields, and every reply carries a signed audit receipt or an explicit degraded/incomplete status. The portal renders only the complete typed GetRunResponse snapshot and server-evaluated attachment evidence; it supplies no descriptor and no safety verdict (issue #21)." value-type="string"/>
+        <bay:change path="evidence[observation-projection]" new-value="artifact.contracts.orchestration-projection" value-type="string"/>
+        <bay:change path="evidence[attachment-evidence-projection]" new-value="artifact.contracts.attachment-proto" value-type="string"/>
+        <bay:change path="revision" old-value="2" new-value="3" value-type="integer"/>
+      </bay:operation>
+    </bay:change-set>
     <bay:revision id="revision.1" number="1" actor-ref="actor.agent-antigravity" created-at="2026-09-01T14:00:00Z" status="accepted" semantic-hash="sha256:4a8b72c910e5f3192a83bd780f2491a27e9b015386f189c4501a4e528b7e9a01" change-set-ref="change-set.b2b-001">
       <bay:summary>Sealed baseline architecture across all 9 sovereign repositories.</bay:summary>
     </bay:revision>
@@ -666,6 +760,9 @@
     <bay:revision id="revision.9" number="9" actor-ref="actor.agent-muse" created-at="2026-09-04T01:40:00Z" sealed-at="2026-09-04T01:40:00Z" previous-revision-ref="revision.8" status="accepted" semantic-hash="sha256:aee89d43cc13b2663731e7f4d59310deb7f2b398c0ad76e22a94cde1f034f54c" change-set-ref="change-set.b2b-009">
       <bay:summary>Sealed revision 9: truthful multi-agent orchestration, observation, attachment, and provenance contracts with the OrchestrationService formal API contract artifact (issue #19); metadata 1.7.0. Semantic-hash computed as for revision 2 (SHA-256 of the xmllint --c14n canonical form with bay:history removed).</bay:summary>
     </bay:revision>
+    <bay:revision id="revision.10" number="10" actor-ref="actor.agent-muse" created-at="2026-09-04T07:30:00Z" sealed-at="2026-09-04T07:30:00Z" previous-revision-ref="revision.9" status="accepted" semantic-hash="sha256:19ddbe04770581cb2d70f60ceef264bbd3b99ec21f1b9fced00c7ddb43360410" change-set-ref="change-set.b2b-010">
+      <bay:summary>Sealed revision 10: migration target corrected to 60 with the served entity map, and the complete authoritative Live Observation projection with participant lifecycle, authenticated binding, and attachment custody/evidence contracts (issue #21); metadata 1.8.0. Semantic-hash computed as for revision 2 (SHA-256 of the xmllint --c14n canonical form with bay:history removed).</bay:summary>
+    </bay:revision>
   </bay:history>
 
   <bay:artifacts>
@@ -684,15 +781,20 @@
     <bay:artifact id="artifact.contracts.gatewaycert-provider" path="gatewaycert/provider.go" media-type="text/x-go" encoding="text" sha256="b0f62df9af41596ffef1b248e92c06f40b183538a939e2d43a9003e425cf9cd3" role="contract">Gateway certificate provider contract: issue, rotate and revoke requests, CSR parsing and identity evidence</bay:artifact>
     <bay:artifact id="artifact.contracts.gatewaypool" path="gatewaypool/gatewaypool.go" media-type="text/x-go" encoding="text" sha256="fdd68bb440d70652bb04cb36bd71cac38b1f653ff44927b53c92151239403e5e" role="contract">Gateway pool coordinator lease vocabulary and liveness rule</bay:artifact>
     <bay:artifact id="artifact.contracts.relayavailability" path="contracts/relayavailability/availability.go" media-type="text/x-go" encoding="text" sha256="f7868c1d3db0093fd7dc1760715480041418ba24a2085f5fdb2fe9175f7c1a1a" role="contract">N-1 relay-cell availability, ordered candidate failover, four-level relay readiness and circuit-evidence rule for gateway/x-mesh circuit dialing</bay:artifact>
-    <bay:artifact id="artifact.contracts.orchestration" path="contracts/orchestration/orchestration.go" media-type="text/x-go" encoding="text" sha256="f0cbfaff3e8df120115be1882bf01a85ce2990759fa6fc533d70f7a545aacfd5" role="contract">Orchestration run, participant, task, and event model with typed lifecycle vocabularies and server-stamped audit hashes</bay:artifact>
-    <bay:artifact id="artifact.contracts.orchestration-ledger" path="contracts/orchestration/ledger.go" media-type="text/x-go" encoding="text" sha256="81cd7adcf4717ed92fbe851570998f31411b661b0d8cad95bfb8c5668b4df4de" role="contract">Fail-closed run/task/event append rules: sequence, replay, transition, duplicate-terminal, tenant, and cursor-scope enforcement with audit-chain verification</bay:artifact>
+    <bay:artifact id="artifact.contracts.orchestration" path="contracts/orchestration/orchestration.go" media-type="text/x-go" encoding="text" sha256="0ee9cfabf1458aefdafd4fbac235edae40c0de85b779979d2ec7c2b698fbef86" role="contract">Orchestration run, participant, task, and event model with typed lifecycle vocabularies and server-stamped audit hashes</bay:artifact>
+    <bay:artifact id="artifact.contracts.orchestration-ledger" path="contracts/orchestration/ledger.go" media-type="text/x-go" encoding="text" sha256="57c0d3b20c41315b9789e6210d8349ac80c4c71cb6f17070d00d48f194aebfa6" role="contract">Fail-closed run/task/event append rules: sequence, replay, transition, duplicate-terminal, tenant, and cursor-scope enforcement with audit-chain verification</bay:artifact>
+    <bay:artifact id="artifact.contracts.orchestration-projection" path="contracts/orchestration/projection.go" media-type="text/x-go" encoding="text" sha256="78e139a4c9c55bf790068605e30c7cdbd55d65498fb65887d61319007505682f" role="contract">Typed GetRun observation projection: participant lifecycle, server-computed counts, cursor/degraded semantics, and partner-safe redaction</bay:artifact>
+    <bay:artifact id="artifact.contracts.orchestration-slots" path="contracts/orchestration/slots.go" media-type="text/x-go" encoding="text" sha256="f422122f4e91e88ef86ef12d5c2e1d6b3bd71c3d9fdb1721c33a8a266de057fe" role="contract">Browser slot proposals and authenticated provenance/bind/update operations with context-derived identity</bay:artifact>
+    <bay:artifact id="artifact.contracts.orchestration-migration" path="contracts/orchestration/migration.go" media-type="text/x-go" encoding="text" sha256="b9a905f1c95e17303eedef21c1bb75024cbaa9818f064a374431f76eac5707b1" role="contract">Authoritative control-plane migration target and served downstream migration entity map (code-only)</bay:artifact>
     <bay:artifact id="artifact.contracts.orchestration-visibility" path="contracts/orchestration/visibility.go" media-type="text/x-go" encoding="text" sha256="d88a1e869c7b1ae165affdfccb6469889bc227a7b103671461b84e92ed49770f" role="contract">Server-assigned visibility, sanitized bounded summaries, and the explicit partner-safe event allowlist</bay:artifact>
     <bay:artifact id="artifact.contracts.orchestration-bff" path="contracts/orchestration/bff.go" media-type="text/x-go" encoding="text" sha256="f89a468ee2d1ee53994d3c051598afcb67043339450ef89bb715924328c0f549" role="contract">BFF command/query envelopes with idempotent start, context-resolved actors, cursor-resumed watch, degraded/incomplete status, and signed audit receipts</bay:artifact>
     <bay:artifact id="artifact.contracts.attachment" path="contracts/attachment/attachment.go" media-type="text/x-go" encoding="text" sha256="5610d418985921f56c1e79b2cf0bd532b03b22350cd7b6f5bd45d051cb63e463" role="contract">Content-addressed attachment refs and scoped fetch/return capabilities with fail-closed target, digest, MIME, size, and decompression guards</bay:artifact>
+    <bay:artifact id="artifact.contracts.attachment-lifecycle" path="contracts/attachment/lifecycle.go" media-type="text/x-go" encoding="text" sha256="9d032d7a59808e036ab780da3930c3226fa6815f35880b1a8cd15fe074e5df22" role="contract">Attachment custody lifecycle and server-evaluated download evidence with closed verdict/status vocabularies</bay:artifact>
     <bay:artifact id="artifact.contracts.provenance" path="contracts/provenance/provenance.go" media-type="text/x-go" encoding="text" sha256="c110915ee41b472faa8c6ffea094b80606544e0025b8513f9adef575b4c717a0" role="contract">Immutable participant runtime provenance with pin verification and container-only cloud placement</bay:artifact>
-    <bay:artifact id="artifact.contracts.orchestration-proto" path="api/proto/builders/v1/orchestration.proto" media-type="text/x-protobuf" encoding="text" sha256="f61306a7052bc32eabb74fe1b5f6ba5c9814077a2ddc6582f0c04e9fcc01f82f" role="contract">OrchestrationService BFF IDL with run, participant, task, event, provenance, attachment, and partner projection messages</bay:artifact>
-    <bay:artifact id="artifact.projection.spec-markdown" path="projections/b2b-federation-contracts.md" media-type="text/markdown" encoding="text" sha256="754c7906ffb7c9c8cb92a9d2729a7cc0003013323756e9f12fb10f75d4fadddf" role="projection">Deterministic Markdown catalog projection of the authoritative spec (regenerate with scripts/generate-projections.py)</bay:artifact>
-    <bay:artifact id="artifact.projection.spec-html" path="projections/b2b-federation-contracts.html" media-type="text/html" encoding="text" sha256="27886bcefcded999972070feac27a7ca3710d977aa14786cd69e8fe01a63705c" role="projection">Deterministic HTML catalog projection of the authoritative spec (regenerate with scripts/generate-projections.py)</bay:artifact>
+    <bay:artifact id="artifact.contracts.orchestration-proto" path="api/proto/builders/v1/orchestration.proto" media-type="text/x-protobuf" encoding="text" sha256="0f7433a154343fb53d663cbcbf81fbcfc414ceadbe4fea6ca6052cb1e314e818" role="contract">OrchestrationService command, query, and authenticated binding IDL with typed slots, GetRun snapshot, participant lifecycle, and provenance operations</bay:artifact>
+    <bay:artifact id="artifact.contracts.attachment-proto" path="api/proto/builders/v1/attachment.proto" media-type="text/x-protobuf" encoding="text" sha256="2f0fc8fa92241ef5a581a20bded7d2f40cf3d4f43cff992d6cf1019eb9434b38" role="contract">AttachmentService custody and scoped-capability IDL with lifecycle, evidence, and closed verdict/status vocabularies</bay:artifact>
+    <bay:artifact id="artifact.projection.spec-markdown" path="projections/b2b-federation-contracts.md" media-type="text/markdown" encoding="text" sha256="c40b9af3885160b7ae2240caa125b347d40deaf724cf75bd4d398bb04d384d08" role="projection">Deterministic Markdown catalog projection of the authoritative spec (regenerate with scripts/generate-projections.py)</bay:artifact>
+    <bay:artifact id="artifact.projection.spec-html" path="projections/b2b-federation-contracts.html" media-type="text/html" encoding="text" sha256="4657164ea61dcb6075d0caca5d1717303123323289a29e79b47d392c262e9b56" role="projection">Deterministic HTML catalog projection of the authoritative spec (regenerate with scripts/generate-projections.py)</bay:artifact>
     <bay:artifact id="artifact.schema.system-specification" path="schemas/system-specification-v4.xsd" media-type="application/xml" encoding="text" sha256="efb60a221e950a9eb74f705961047055c2cfa40cc269ec6aac8d9131fd45b197" role="schema">Baylife Meta-Schema v4</bay:artifact>
     <bay:artifact id="artifact.schema.b2b-architecture" path="schemas/b2b-architecture-v1.xsd" media-type="application/xml" encoding="text" sha256="a007f2fd976ee6a6d1664f456f0af004798321d89e034c71fc0b87645891a9c8" role="schema">B2B Architecture Domain Profile XSD</bay:artifact>
   </bay:artifacts>
@@ -712,6 +814,7 @@
     <bay:generated-projection path="api/proto/builders/v1/federation.proto" format="text/x-protobuf"/>
     <bay:generated-projection path="api/proto/builders/v1/common.proto" format="text/x-protobuf"/>
     <bay:generated-projection path="api/proto/builders/v1/orchestration.proto" format="text/x-protobuf"/>
+    <bay:generated-projection path="api/proto/builders/v1/attachment.proto" format="text/x-protobuf"/>
     <bay:generated-projection path="projections/b2b-federation-contracts.md" format="text/markdown"/>
     <bay:generated-projection path="projections/b2b-federation-contracts.html" format="text/html"/>
   </bay:delivery>

@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
 <head><meta charset="utf-8">
-<title>B2B Federation Contracts — spec 1.7.0</title></head>
+<title>B2B Federation Contracts — spec 1.8.0</title></head>
 <body>
 <h1>B2B Federation Contracts — Authoritative Catalog</h1>
-<p>Spec version 1.7.0 (accepted). Generated deterministically
+<p>Spec version 1.8.0 (accepted). Generated deterministically
 from spec/b2b-federation-spec-v1.xml.</p>
 <h2>Components</h2>
 <table><tr><th>id</th><th>kind</th><th>name</th><th>status</th><th>rev</th></tr>
@@ -12,9 +12,9 @@ from spec/b2b-federation-spec-v1.xml.</p>
 <tr><td>comp.x-mesh</td><td>userspace-wireguard-mesh</td><td>x-mesh WireGuard Substrate</td><td>accepted</td><td>3</td></tr>
 <tr><td>comp.federation-relay</td><td>payload-blind-relay</td><td>Payload-Blind Relay Cells</td><td>accepted</td><td>2</td></tr>
 <tr><td>comp.federation-gateway</td><td>enterprise-airlock-gateway</td><td>Enterprise Gateway Airlock</td><td>accepted</td><td>2</td></tr>
-<tr><td>comp.builders-control</td><td>sovereign-control-plane</td><td>Sovereign Control Plane</td><td>accepted</td><td>3</td></tr>
-<tr><td>comp.builders-agent</td><td>sandboxed-agent-runtime</td><td>Workstation Agent Runtime</td><td>accepted</td><td>3</td></tr>
-<tr><td>comp.builders-portal</td><td>admin-portal</td><td>Builders Admin Portal</td><td>accepted</td><td>4</td></tr>
+<tr><td>comp.builders-control</td><td>sovereign-control-plane</td><td>Sovereign Control Plane</td><td>accepted</td><td>4</td></tr>
+<tr><td>comp.builders-agent</td><td>sandboxed-agent-runtime</td><td>Workstation Agent Runtime</td><td>accepted</td><td>4</td></tr>
+<tr><td>comp.builders-portal</td><td>admin-portal</td><td>Builders Admin Portal</td><td>accepted</td><td>5</td></tr>
 <tr><td>comp.builders-hub</td><td>operator-cockpit</td><td>Builders Hub Operator Cockpit</td><td>accepted</td><td>2</td></tr>
 <tr><td>comp.sim-infra</td><td>simulation-infrastructure</td><td>Simulation Infrastructure</td><td>accepted</td><td>5</td></tr>
 </table>
@@ -22,8 +22,8 @@ from spec/b2b-federation-spec-v1.xml.</p>
 <table><tr><th>id</th><th>source</th><th>target</th><th>status</th><th>rev</th></tr>
 <tr><td>rel.gateway-dials-relay</td><td>comp.federation-gateway</td><td>comp.federation-relay</td><td>accepted</td><td>3</td></tr>
 <tr><td>rel.gateway-connects-control</td><td>comp.federation-gateway</td><td>comp.builders-control</td><td>accepted</td><td>2</td></tr>
-<tr><td>rel.agent-connects-control</td><td>comp.builders-agent</td><td>comp.builders-control</td><td>accepted</td><td>2</td></tr>
-<tr><td>rel.portal-dials-control</td><td>comp.builders-portal</td><td>comp.builders-control</td><td>accepted</td><td>2</td></tr>
+<tr><td>rel.agent-connects-control</td><td>comp.builders-agent</td><td>comp.builders-control</td><td>accepted</td><td>3</td></tr>
+<tr><td>rel.portal-dials-control</td><td>comp.builders-portal</td><td>comp.builders-control</td><td>accepted</td><td>3</td></tr>
 <tr><td>rel.hub-dials-control</td><td>comp.builders-hub</td><td>comp.builders-control</td><td>accepted</td><td>1</td></tr>
 </table>
 <h2>Artifacts</h2>
@@ -43,13 +43,18 @@ from spec/b2b-federation-spec-v1.xml.</p>
 <tr><td>artifact.contracts.gatewaycert-provider</td><td>gatewaycert/provider.go</td><td>contract</td><td>b0f62df9af41596ffef1b248e92c06f40b183538a939e2d43a9003e425cf9cd3</td></tr>
 <tr><td>artifact.contracts.gatewaypool</td><td>gatewaypool/gatewaypool.go</td><td>contract</td><td>fdd68bb440d70652bb04cb36bd71cac38b1f653ff44927b53c92151239403e5e</td></tr>
 <tr><td>artifact.contracts.relayavailability</td><td>contracts/relayavailability/availability.go</td><td>contract</td><td>f7868c1d3db0093fd7dc1760715480041418ba24a2085f5fdb2fe9175f7c1a1a</td></tr>
-<tr><td>artifact.contracts.orchestration</td><td>contracts/orchestration/orchestration.go</td><td>contract</td><td>f0cbfaff3e8df120115be1882bf01a85ce2990759fa6fc533d70f7a545aacfd5</td></tr>
-<tr><td>artifact.contracts.orchestration-ledger</td><td>contracts/orchestration/ledger.go</td><td>contract</td><td>81cd7adcf4717ed92fbe851570998f31411b661b0d8cad95bfb8c5668b4df4de</td></tr>
+<tr><td>artifact.contracts.orchestration</td><td>contracts/orchestration/orchestration.go</td><td>contract</td><td>0ee9cfabf1458aefdafd4fbac235edae40c0de85b779979d2ec7c2b698fbef86</td></tr>
+<tr><td>artifact.contracts.orchestration-ledger</td><td>contracts/orchestration/ledger.go</td><td>contract</td><td>57c0d3b20c41315b9789e6210d8349ac80c4c71cb6f17070d00d48f194aebfa6</td></tr>
+<tr><td>artifact.contracts.orchestration-projection</td><td>contracts/orchestration/projection.go</td><td>contract</td><td>78e139a4c9c55bf790068605e30c7cdbd55d65498fb65887d61319007505682f</td></tr>
+<tr><td>artifact.contracts.orchestration-slots</td><td>contracts/orchestration/slots.go</td><td>contract</td><td>f422122f4e91e88ef86ef12d5c2e1d6b3bd71c3d9fdb1721c33a8a266de057fe</td></tr>
+<tr><td>artifact.contracts.orchestration-migration</td><td>contracts/orchestration/migration.go</td><td>contract</td><td>b9a905f1c95e17303eedef21c1bb75024cbaa9818f064a374431f76eac5707b1</td></tr>
 <tr><td>artifact.contracts.orchestration-visibility</td><td>contracts/orchestration/visibility.go</td><td>contract</td><td>d88a1e869c7b1ae165affdfccb6469889bc227a7b103671461b84e92ed49770f</td></tr>
 <tr><td>artifact.contracts.orchestration-bff</td><td>contracts/orchestration/bff.go</td><td>contract</td><td>f89a468ee2d1ee53994d3c051598afcb67043339450ef89bb715924328c0f549</td></tr>
 <tr><td>artifact.contracts.attachment</td><td>contracts/attachment/attachment.go</td><td>contract</td><td>5610d418985921f56c1e79b2cf0bd532b03b22350cd7b6f5bd45d051cb63e463</td></tr>
+<tr><td>artifact.contracts.attachment-lifecycle</td><td>contracts/attachment/lifecycle.go</td><td>contract</td><td>9d032d7a59808e036ab780da3930c3226fa6815f35880b1a8cd15fe074e5df22</td></tr>
 <tr><td>artifact.contracts.provenance</td><td>contracts/provenance/provenance.go</td><td>contract</td><td>c110915ee41b472faa8c6ffea094b80606544e0025b8513f9adef575b4c717a0</td></tr>
-<tr><td>artifact.contracts.orchestration-proto</td><td>api/proto/builders/v1/orchestration.proto</td><td>contract</td><td>f61306a7052bc32eabb74fe1b5f6ba5c9814077a2ddc6582f0c04e9fcc01f82f</td></tr>
+<tr><td>artifact.contracts.orchestration-proto</td><td>api/proto/builders/v1/orchestration.proto</td><td>contract</td><td>0f7433a154343fb53d663cbcbf81fbcfc414ceadbe4fea6ca6052cb1e314e818</td></tr>
+<tr><td>artifact.contracts.attachment-proto</td><td>api/proto/builders/v1/attachment.proto</td><td>contract</td><td>2f0fc8fa92241ef5a581a20bded7d2f40cf3d4f43cff992d6cf1019eb9434b38</td></tr>
 <tr><td>artifact.projection.spec-markdown</td><td>projections/b2b-federation-contracts.md</td><td>projection</td><td>derived</td></tr>
 <tr><td>artifact.projection.spec-html</td><td>projections/b2b-federation-contracts.html</td><td>projection</td><td>derived</td></tr>
 <tr><td>artifact.schema.system-specification</td><td>schemas/system-specification-v4.xsd</td><td>schema</td><td>efb60a221e950a9eb74f705961047055c2cfa40cc269ec6aac8d9131fd45b197</td></tr>
@@ -66,6 +71,7 @@ from spec/b2b-federation-spec-v1.xml.</p>
 <li>revision 7: Sealed revision 7: contract artifacts and relationship evidence for the gateway-facing wire and facade types (issue #3 item 3); metadata 1.5.0. Semantic-hash computed as for revision 2 (SHA-256 of the xmllint --c14n canonical form with bay:history removed).</li>
 <li>revision 8: Sealed revision 8: N-1 relay-cell availability and machine-verifiable readiness contract with ordered candidate failover and circuit-only success evidence (issue #15); metadata 1.6.0. Semantic-hash computed as for revision 2 (SHA-256 of the xmllint --c14n canonical form with bay:history removed).</li>
 <li>revision 9: Sealed revision 9: truthful multi-agent orchestration, observation, attachment, and provenance contracts with the OrchestrationService formal API contract artifact (issue #19); metadata 1.7.0. Semantic-hash computed as for revision 2 (SHA-256 of the xmllint --c14n canonical form with bay:history removed).</li>
+<li>revision 10: Sealed revision 10: migration target corrected to 60 with the served entity map, and the complete authoritative Live Observation projection with participant lifecycle, authenticated binding, and attachment custody/evidence contracts (issue #21); metadata 1.8.0. Semantic-hash computed as for revision 2 (SHA-256 of the xmllint --c14n canonical form with bay:history removed).</li>
 </ul>
 </body>
 </html>
