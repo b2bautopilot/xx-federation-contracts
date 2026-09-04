@@ -21,6 +21,22 @@ jobs:
       - name: Validate XML Specification
         run: python3 scripts/validate-spec.py
 
+  check-contract-gates:
+    name: Contract Projection & Consistency Gates
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Pin IDL contract artifacts (clean diff)
+        run: python3 scripts/check-projections.py
+      - name: XML<->proto<->Go consistency (clean single source)
+        run: python3 scripts/check-orchestration-consistency.py
+      - name: Markdown/HTML catalog projections (clean diff)
+        run: python3 scripts/generate-projections.py --check
+
   test:
     name: Build & Test Contracts
     runs-on: ubuntu-latest

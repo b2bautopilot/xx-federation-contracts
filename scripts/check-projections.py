@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
-"""Deterministic check (and outward export) for the facade IDL projections.
+"""Deterministic check (and outward export) for the facade and orchestration
+IDL contract artifacts.
 
-Authority direction (issue #3 D2): the facade IDL is owned authoritatively by
-THIS repository. Downstream consumers (notably xx-builders-net) generate from
-here; nothing is ever copied INTO this repository from a downstream checkout.
-There is therefore no `--generate --source <checkout>` mode: a reverse
-generator would make the downstream working copy canonical and let an
-unreviewed external mutation silently become the contract.
+Authority direction (issue #3 D2, extended by issue #19): the facade IDL and
+the orchestration formal API contract artifact are owned authoritatively by
+THIS repository under the sealed XML spec. Downstream consumers (notably
+xx-builders-net) generate from here; nothing is ever copied INTO this
+repository from a downstream checkout. There is therefore no `--generate
+--source <checkout>` mode: a reverse generator would make the downstream
+working copy canonical and let an unreviewed external mutation silently
+become the contract.
 
 - Default `check` mode is offline and CI-safe: every bay:generated-projection
   declared in spec/b2b-federation-spec-v1.xml must have a matching
@@ -28,6 +31,7 @@ import xml.etree.ElementTree as ET
 PROJECTIONS = [
     "api/proto/builders/v1/federation.proto",
     "api/proto/builders/v1/common.proto",
+    "api/proto/builders/v1/orchestration.proto",
 ]
 NS = {"bay": "urn:baylife:system-specification:4.0"}
 

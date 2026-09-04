@@ -17,6 +17,7 @@ import (
 var projections = []string{
 	"api/proto/builders/v1/federation.proto",
 	"api/proto/builders/v1/common.proto",
+	"api/proto/builders/v1/orchestration.proto",
 }
 
 func repoRoot(t *testing.T) string {
@@ -71,6 +72,50 @@ func TestReverseGenerationRefused(t *testing.T) {
 		}
 		if !strings.Contains(out, "REFUSED") {
 			t.Errorf("reverse generator %v output lacks refusal\n%s", args, out)
+		}
+	}
+}
+
+func TestOrchestrationConsistencyGatePasses(t *testing.T) {
+	python, err := exec.LookPath("python3")
+	if err != nil {
+		t.Skip("python3 not available")
+	}
+	script := filepath.Join(repoRoot(t), "scripts", "check-orchestration-consistency.py")
+	cmd := exec.Command(python, script)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("consistency gate exit != 0\n%s", out)
+	}
+	for _, want := range []string{"linked files", "enum values", "RPCs agree"} {
+		if !strings.Contains(string(out), want) {
+			t.Errorf("consistency output does not mention %q\n%s", want, out)
+		}
+	}
+}
+
+func TestSpecProjectionsClean(t *testing.T) {
+	python, err := exec.LookPath("python3")
+	if err != nil {
+		t.Skip("python3 not available")
+	}
+	script := filepath.Join(repoRoot(t), "scripts", "generate-projections.py")
+	cmd := exec.Command(python, script, "--check")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("spec projection clean-diff exit != 0\n%s", out)
+	}
+	md, err := os.ReadFile(filepath.Join(repoRoot(t), "projections", "b2b-federation-contracts.md"))
+	if err != nil {
+		t.Fatalf("read markdown projection: %v", err)
+	}
+	for _, id := range []string{
+		"comp.builders-control", "comp.builders-agent", "comp.builders-portal",
+		"rel.agent-connects-control", "rel.portal-dials-control",
+		"artifact.contracts.orchestration",
+	} {
+		if !strings.Contains(string(md), id) {
+			t.Errorf("markdown projection does not mention %s", id)
 		}
 	}
 }

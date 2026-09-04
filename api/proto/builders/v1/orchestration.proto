@@ -1,0 +1,299 @@
+// Orchestration, observation, attachment, and runtime-provenance contracts
+// for truthful multi-agent orchestration (issue #19, parent epic #18).
+//
+// AUTHORITY: the single machine-readable source is
+// spec/b2b-federation-spec-v1.xml. This file is the formal API contract
+// artifact linked and digested there (artifact.contracts.orchestration-proto):
+// downstream consumers (notably xx-builders-net, which owns the durable
+// ledger) generate from here; nothing is ever copied INTO this repository
+// from a downstream checkout. The Go packages contracts/orchestration,
+// contracts/attachment, and contracts/provenance are the enforcement
+// implementation of the same sealed contract — not a second source of
+// truth. scripts/check-orchestration-consistency.py mechanically proves the
+// three sides agree (XML linkage plus proto-enum/Go-const equivalence);
+// scripts/check-projections.py pins these bytes to the bay:artifact
+// declaration; any drift fails the gates.
+//
+// The control plane assigns every server field (event id, sequence,
+// timestamp, visibility) and signs every audit receipt. Workloads never
+// assert identity, sequence, or visibility. Relays stay payload-blind: no
+// orchestration semantics travel the relay fabric.
+syntax = "proto3";
+
+package builders.v1;
+
+// Compatibility-only codegen path, mirroring api/proto/builders/v1/
+// federation.proto by repository convention so downstream generated code
+// lands on the same historical import path. It is not a source-pointer
+// change: the authoritative Go implementation lives in this repository's
+// contracts/orchestration, contracts/attachment, and contracts/provenance
+// packages, and the architecture authority remains the sealed XML spec.
+option go_package = "github.com/b2bautopilot/xyz-b2b/services/builders-net/gen/builders/v1;buildersv1";
+
+// RunState is the run lifecycle. Terminal states accept no further events.
+enum RunState {
+  RUN_STATE_UNSPECIFIED = 0;
+  RUN_REQUESTED = 1;
+  RUN_AUTHORIZED = 2;
+  RUN_RUNNING = 3;
+  RUN_COMPLETED = 4;
+  RUN_FAILED = 5;
+  RUN_TIMED_OUT = 6;
+  RUN_CANCELLED = 7;
+}
+
+// TaskState is the task lifecycle. Terminal states accept no further task
+// events (duplicate terminal results fail closed).
+enum TaskState {
+  TASK_STATE_UNSPECIFIED = 0;
+  TASK_PENDING = 1;
+  TASK_ASSIGNED = 2;
+  TASK_ACKNOWLEDGED = 3;
+  TASK_IN_PROGRESS = 4;
+  TASK_IN_REVIEW = 5;
+  TASK_DONE = 6;
+  TASK_FAILED = 7;
+  TASK_TIMED_OUT = 8;
+  TASK_CANCELLED = 9;
+}
+
+// OrchestrationEventKind is the typed lifecycle vocabulary. Unknown kinds
+// fail closed.
+enum OrchestrationEventKind {
+  ORCHESTRATION_EVENT_KIND_UNSPECIFIED = 0;
+  EVENT_REQUEST = 1;
+  EVENT_AUTHORIZATION = 2;
+  EVENT_PM_START = 3;
+  EVENT_PLAN_PUBLICATION = 4;
+  EVENT_ASSIGNMENT = 5;
+  EVENT_ACKNOWLEDGMENT = 6;
+  EVENT_PROGRESS = 7;
+  EVENT_HANDOFF = 8;
+  EVENT_DECISION = 9;
+  EVENT_REVIEW = 10;
+  EVENT_SYNTHESIS = 11;
+  EVENT_COMPLETION = 12;
+  EVENT_FAILURE = 13;
+  EVENT_TIMEOUT = 14;
+  EVENT_CANCELLATION = 15;
+}
+
+// ParticipantRole fills one run slot. Exactly one PM, at least one builder,
+// at least one reviewer whose agent kind differs from the PM.
+enum ParticipantRole {
+  PARTICIPANT_ROLE_UNSPECIFIED = 0;
+  ROLE_PM = 1;
+  ROLE_BUILDER = 2;
+  ROLE_REVIEWER = 3;
+}
+
+// ObservationVisibility is server-assigned. Tenant-local by default;
+// partner only through the explicit partner-safe allowlist.
+enum ObservationVisibility {
+  OBSERVATION_VISIBILITY_UNSPECIFIED = 0;
+  VISIBILITY_TENANT = 1;
+  VISIBILITY_PARTNER = 2;
+}
+
+// AttachmentDirection marks an input document versus a returned result.
+enum AttachmentDirection {
+  ATTACHMENT_DIRECTION_UNSPECIFIED = 0;
+  DIRECTION_INPUT = 1;
+  DIRECTION_RETURNED = 2;
+}
+
+// AttachmentScanState gates serving: only CLEAN is fetchable.
+enum AttachmentScanState {
+  ATTACHMENT_SCAN_STATE_UNSPECIFIED = 0;
+  SCAN_PENDING = 1;
+  SCAN_CLEAN = 2;
+  SCAN_QUARANTINED = 3;
+  SCAN_BLOCKED = 4;
+}
+
+// ContainerRuntimeKind is the closed placement vocabulary. GCP runs Cloud
+// Run, Azure runs Container Apps/Instances, AWS stays ECS Fargate-only.
+// No VM kind exists.
+enum ContainerRuntimeKind {
+  CONTAINER_RUNTIME_KIND_UNSPECIFIED = 0;
+  GCP_CLOUD_RUN = 1;
+  AZURE_CONTAINER_APPS = 2;
+  AZURE_CONTAINER_INSTANCES = 3;
+  AWS_ECS_FARGATE = 4;
+}
+
+// OrchestrationRun is the control-owned run record.
+message OrchestrationRun {
+  string schema_version = 1;
+  string run_id = 2;
+  string room_id = 3;
+  string command_id = 4;
+  string source_org_id = 5;
+  string target_org_id = 6;
+  string tenant_id = 7;
+  RunState state = 8;
+  int64 revision = 9;
+  string audit_head_hash = 10;
+  int64 created_at_ms = 11;
+  int64 updated_at_ms = 12;
+}
+
+// AgentParticipant binds one slot to an authenticated
+// session/workload/container triple plus the provenance reference.
+message AgentParticipant {
+  string participant_id = 1;
+  ParticipantRole role = 2;
+  string agent_kind = 3;
+  string session_id = 4;
+  string workload_id = 5;
+  string container_id = 6;
+  string assigned_task_id = 7;
+  string runtime_provenance_id = 8;
+}
+
+// OrchestrationTask is one DAG node. It carries no prompts, tool arguments,
+// or reasoning text.
+message OrchestrationTask {
+  string task_id = 1;
+  repeated string depends_on = 2;
+  string assignee_id = 3;
+  TaskState state = 4;
+  string public_summary = 5;
+  string result_ref = 6;
+  repeated string attachment_ids = 7;
+}
+
+// OrchestrationEvent is the server-projected record. event_id, seq,
+// timestamp_ms, visibility, and audit_hash are server-assigned; workloads
+// assert none of them.
+message OrchestrationEvent {
+  string schema_version = 1;
+  string event_id = 2;
+  int64 seq = 3;
+  string run_id = 4;
+  string task_id = 5;
+  string actor_id = 6;
+  string tenant_id = 7;
+  OrchestrationEventKind kind = 8;
+  string causation_id = 9;
+  string correlation_id = 10;
+  ObservationVisibility visibility = 11;
+  string summary = 12;
+  repeated string attachments = 13;
+  int64 timestamp_ms = 14;
+  string audit_hash = 15;
+}
+
+// PartnerEvent is the ONLY shape partner viewers may receive.
+message PartnerEvent {
+  string schema_version = 1;
+  string event_id = 2;
+  int64 seq = 3;
+  string run_id = 4;
+  OrchestrationEventKind kind = 5;
+  string actor_role = 6;
+  string summary = 7;
+  repeated string attachments = 8;
+  int64 timestamp_ms = 9;
+  string audit_hash = 10;
+}
+
+// RuntimeProvenance is the immutable evidence for one participant
+// container, verified against pinned digests before use.
+message RuntimeProvenance {
+  string schema_version = 1;
+  string provenance_id = 2;
+  string oci_index_digest = 3;
+  map<string, string> oci_platform_digests = 4;
+  string agentkit_commit = 5;
+  string agentkit_version = 6;
+  string cli_name = 7;
+  string cli_version = 8;
+  string model_id = 9;
+  string provider_id = 10;
+  string network_policy_hash = 11;
+  int64 spec_revision = 12;
+  string spec_hash = 13;
+  ContainerRuntimeKind runtime_kind = 14;
+  string cloud = 15;
+  bool non_root = 16;
+  bool no_new_privileges = 17;
+  bool image_verified = 18;
+}
+
+// AttachmentRef is the event-safe descriptor. No bytes, paths, storage
+// URLs, secrets, or capability values ever appear in observation events.
+message AttachmentRef {
+  string schema_version = 1;
+  string attachment_id = 2;
+  string sha256_hex = 3;
+  int64 size_bytes = 4;
+  string mime = 5;
+  string display_name = 6;
+  AttachmentDirection direction = 7;
+  AttachmentScanState scan_state = 8;
+  string audience = 9;
+  int64 expires_at_ms = 10;
+}
+
+// BffCommandEnvelope is the single BFF intake shape. actor_id is advisory:
+// the authenticated control context decides the actor and signs the audit
+// receipt.
+message BffCommandEnvelope {
+  string schema_version = 1;
+  string command_id = 2;
+  string idempotency_key = 3;
+  string command = 4;
+  string run_id = 5;
+  string tenant_id = 6;
+  string actor_id = 7;
+  bytes payload = 8;
+  int64 requested_at_ms = 9;
+}
+
+// BffCommandReceipt is the signed control response. degraded/incomplete
+// MUST be surfaced, never defaulted away.
+message BffCommandReceipt {
+  string schema_version = 1;
+  string command_id = 2;
+  string run_id = 3;
+  bool accepted = 4;
+  bool degraded = 5;
+  bool incomplete = 6;
+  string status = 7;
+  int64 next_after_seq = 8;
+  string audit_key_id = 9;
+  bytes signature = 10;
+}
+
+// WatchEventsRequest is the resumable observation read with cursor resume.
+message WatchEventsRequest {
+  string run_id = 1;
+  string tenant_id = 2;
+  int64 after_seq = 3;
+  int32 limit = 4;
+}
+
+// WatchEventsResponse carries one page plus explicit degraded/incomplete
+// status and the next cursor.
+message WatchEventsResponse {
+  repeated OrchestrationEvent events = 1;
+  int64 next_after_seq = 2;
+  bool degraded = 3;
+  bool incomplete = 4;
+}
+
+// OrchestrationService is the BFF command surface. Every mutation is
+// idempotent where marked, every read is tenant-scoped, and every reply
+// carries a signed audit receipt or an explicit degraded status.
+service OrchestrationService {
+  // StartRun opens a run; replaying the idempotency key returns the
+  // original receipt and creates no second run or container set.
+  rpc StartRun(BffCommandEnvelope) returns (BffCommandReceipt);
+  // CancelRun moves a live run to its terminal cancelled state.
+  rpc CancelRun(BffCommandEnvelope) returns (BffCommandReceipt);
+  // GetRun returns the control-projected run record and roster.
+  rpc GetRun(BffCommandEnvelope) returns (BffCommandReceipt);
+  // WatchEvents streams the gap-free resumable server sequence.
+  rpc WatchEvents(WatchEventsRequest) returns (WatchEventsResponse);
+}

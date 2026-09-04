@@ -16,13 +16,17 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 
+	"github.com/b2bautopilot/xx-federation-contracts/contracts/attachment"
+	"github.com/b2bautopilot/xx-federation-contracts/contracts/orchestration"
 	"github.com/b2bautopilot/xx-federation-contracts/contracts/orgregistry"
+	"github.com/b2bautopilot/xx-federation-contracts/contracts/provenance"
 	"github.com/b2bautopilot/xx-federation-contracts/contracts/relaywire"
 	"github.com/b2bautopilot/xx-federation-contracts/contracts/transport"
 	"github.com/b2bautopilot/xx-federation-contracts/gatewayregistration"
@@ -181,6 +185,68 @@ func main() {
 		"lca_digest":    lcaDigest,
 	}
 	if err := writeFixture("gatewayregistration", regVec); err != nil {
+		panic(err)
+	}
+
+	// ---- orchestration audit chain (issue #19) ----
+	// Fixed run, fixed client events, fixed server stamps: regenerating must
+	// produce byte-identical audit hashes, or the event canonical form drifted.
+	orchRun := "parity-run-1"
+	prev := orchestration.GenesisAuditHash(orchRun)
+	orchInputs := []struct {
+		client orchestration.ClientEvent
+		id     string
+		ts     int64
+	}{
+		{orchestration.ClientEvent{RunID: orchRun, ActorID: "parity-pm", TenantID: "parity-tenant", Kind: orchestration.EventPMStart, CorrelationID: "corr-1", Summary: "pm online"}, "e-parity-1", 1700000000000},
+		{orchestration.ClientEvent{RunID: orchRun, TaskID: "parity-task-1", ActorID: "parity-builder", TenantID: "parity-tenant", Kind: orchestration.EventProgress, CausationID: "e-parity-1", CorrelationID: "corr-1", Summary: "halfway"}, "e-parity-2", 1700000001000},
+		{orchestration.ClientEvent{RunID: orchRun, ActorID: "parity-pm", TenantID: "parity-tenant", Kind: orchestration.EventSynthesis, CausationID: "e-parity-2", CorrelationID: "corr-1", Summary: "merged result"}, "e-parity-3", 1700000002000},
+	}
+	stamped := make([]orchestration.OrchestrationEvent, 0, len(orchInputs))
+	for i, in := range orchInputs {
+		ev, err := orchestration.StampEvent(in.client, in.id, int64(i+1), in.ts, orchestration.VisibilityTenant, prev)
+		if err != nil {
+			panic(err)
+		}
+		stamped = append(stamped, ev)
+		prev = ev.AuditHash
+	}
+	orchBody := []byte("parity input document")
+	provDoc := provenance.RuntimeProvenance{
+		SchemaVersion:      provenance.SchemaRuntimeProvenanceV1,
+		ProvenanceID:       "parity-prov-1",
+		OCIIndexDigest:     "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+		OCIPlatformDigests: map[string]string{"linux/amd64": "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"},
+		AgentKitCommit:     "0123456789abcdef0123456789abcdef01234567",
+		AgentKitVersion:    "agentkit-0.9.0",
+		CLIName:            "muse",
+		CLIVersion:         "1.2.3",
+		ModelID:            "muse-spark",
+		ProviderID:         "meta-msl",
+		NetworkPolicyHash:  "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+		SpecRevision:       9,
+		SpecHash:           "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+		RuntimeKind:        provenance.RuntimeGCPCloudRun,
+		Cloud:              provenance.CloudGCP,
+		NonRoot:            true,
+		NoNewPrivileges:    true,
+		ImageVerified:      true,
+	}
+	provRaw, err := json.Marshal(provDoc)
+	if err != nil {
+		panic(err)
+	}
+	provSum := sha256.Sum256(provRaw)
+	orchVec := map[string]any{
+		"run_id":            orchRun,
+		"genesis_audit":     orchestration.GenesisAuditHash(orchRun),
+		"events":            stamped,
+		"chain_head":        prev,
+		"attachment_body":   string(orchBody),
+		"attachment_digest": attachment.DigestHex(orchBody),
+		"provenance_sha256": hex.EncodeToString(provSum[:]),
+	}
+	if err := writeFixture("orchestration", orchVec); err != nil {
 		panic(err)
 	}
 

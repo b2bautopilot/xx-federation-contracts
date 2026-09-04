@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8">
+<title>B2B Federation Contracts — spec 1.7.0</title></head>
+<body>
+<h1>B2B Federation Contracts — Authoritative Catalog</h1>
+<p>Spec version 1.7.0 (accepted). Generated deterministically
+from spec/b2b-federation-spec-v1.xml.</p>
+<h2>Components</h2>
+<table><tr><th>id</th><th>kind</th><th>name</th><th>status</th><th>rev</th></tr>
+<tr><td>comp.order-to-cash-v1</td><td>business-service-contract</td><td>Order-to-Cash v1 Contract Pack</td><td>accepted</td><td>2</td></tr>
+<tr><td>comp.x-mesh</td><td>userspace-wireguard-mesh</td><td>x-mesh WireGuard Substrate</td><td>accepted</td><td>3</td></tr>
+<tr><td>comp.federation-relay</td><td>payload-blind-relay</td><td>Payload-Blind Relay Cells</td><td>accepted</td><td>2</td></tr>
+<tr><td>comp.federation-gateway</td><td>enterprise-airlock-gateway</td><td>Enterprise Gateway Airlock</td><td>accepted</td><td>2</td></tr>
+<tr><td>comp.builders-control</td><td>sovereign-control-plane</td><td>Sovereign Control Plane</td><td>accepted</td><td>3</td></tr>
+<tr><td>comp.builders-agent</td><td>sandboxed-agent-runtime</td><td>Workstation Agent Runtime</td><td>accepted</td><td>3</td></tr>
+<tr><td>comp.builders-portal</td><td>admin-portal</td><td>Builders Admin Portal</td><td>accepted</td><td>4</td></tr>
+<tr><td>comp.builders-hub</td><td>operator-cockpit</td><td>Builders Hub Operator Cockpit</td><td>accepted</td><td>2</td></tr>
+<tr><td>comp.sim-infra</td><td>simulation-infrastructure</td><td>Simulation Infrastructure</td><td>accepted</td><td>5</td></tr>
+</table>
+<h2>Relationships</h2>
+<table><tr><th>id</th><th>source</th><th>target</th><th>status</th><th>rev</th></tr>
+<tr><td>rel.gateway-dials-relay</td><td>comp.federation-gateway</td><td>comp.federation-relay</td><td>accepted</td><td>3</td></tr>
+<tr><td>rel.gateway-connects-control</td><td>comp.federation-gateway</td><td>comp.builders-control</td><td>accepted</td><td>2</td></tr>
+<tr><td>rel.agent-connects-control</td><td>comp.builders-agent</td><td>comp.builders-control</td><td>accepted</td><td>2</td></tr>
+<tr><td>rel.portal-dials-control</td><td>comp.builders-portal</td><td>comp.builders-control</td><td>accepted</td><td>2</td></tr>
+<tr><td>rel.hub-dials-control</td><td>comp.builders-hub</td><td>comp.builders-control</td><td>accepted</td><td>1</td></tr>
+</table>
+<h2>Artifacts</h2>
+<table><tr><th>id</th><th>path</th><th>role</th><th>sha256</th></tr>
+<tr><td>artifact.contracts.order-to-cash.proto</td><td>api/proto/builders/v1/order_to_cash.proto</td><td>contract</td><td>e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855</td></tr>
+<tr><td>artifact.contracts.federation-facade.proto</td><td>api/proto/builders/v1/federation.proto</td><td>contract</td><td>65e9cc8acc4173821860c49a135e6a0dc09d86ffb7b060df3a56166e8b274d85</td></tr>
+<tr><td>artifact.contracts.common.proto</td><td>api/proto/builders/v1/common.proto</td><td>contract</td><td>357ef6c3834a20742bc79187791145adefd58c3ae81da73377042965492224d3</td></tr>
+<tr><td>artifact.contracts.transport</td><td>contracts/transport/transport.go</td><td>contract</td><td>83704dc589c960bf45305d0415fb4cfdc016c6d2eda1cb2aff8e03e8de2718b0</td></tr>
+<tr><td>artifact.contracts.transport-exchange</td><td>contracts/transport/exchange.go</td><td>contract</td><td>e9bff699d234167d5d67784f59c77c086ed9cd23cb63ed80da14baca5bc01daf</td></tr>
+<tr><td>artifact.contracts.relaywire</td><td>contracts/relaywire/relaywire.go</td><td>contract</td><td>64079bdc9b776448b02c0db23724976dede05edf8c075298a8c7e9c6ce2b3e25</td></tr>
+<tr><td>artifact.contracts.federationstate</td><td>contracts/federationstate/state.go</td><td>contract</td><td>7e4d07b54ddd5022e84e160f031992b3559c32b4c369d950dcec8b3a9873fe85</td></tr>
+<tr><td>artifact.contracts.orgregistry-rendezvous</td><td>contracts/orgregistry/rendezvous.go</td><td>contract</td><td>359646bfd51e81db3104a8025e2994cbd6624ab43aedc212c64bf32c4a7f2fc7</td></tr>
+<tr><td>artifact.contracts.orgregistry-intake</td><td>contracts/orgregistry/intake.go</td><td>contract</td><td>f6750659825aacd537afc3727a68179b177278e8a45f1b739471270974f9a2f0</td></tr>
+<tr><td>artifact.contracts.facade</td><td>contracts/facade/vocabulary.go</td><td>contract</td><td>d17406ece311b6ffa5265540ec73e2af1a4dc71d973cc965b09425c696a3852a</td></tr>
+<tr><td>artifact.contracts.gatewayregistration</td><td>gatewayregistration/schema.go</td><td>contract</td><td>da27a4c4403030ff1c8db00610a706074337d3d1dbdf056cdc4a1f9a495fdaea</td></tr>
+<tr><td>artifact.contracts.gatewaycert-planes</td><td>gatewaycert/plane.go</td><td>contract</td><td>f81b5edf5b87e2a787eac6eef7b1d22b7901fb3222b7903fdac05d4d9f516d38</td></tr>
+<tr><td>artifact.contracts.gatewaycert-provider</td><td>gatewaycert/provider.go</td><td>contract</td><td>b0f62df9af41596ffef1b248e92c06f40b183538a939e2d43a9003e425cf9cd3</td></tr>
+<tr><td>artifact.contracts.gatewaypool</td><td>gatewaypool/gatewaypool.go</td><td>contract</td><td>fdd68bb440d70652bb04cb36bd71cac38b1f653ff44927b53c92151239403e5e</td></tr>
+<tr><td>artifact.contracts.relayavailability</td><td>contracts/relayavailability/availability.go</td><td>contract</td><td>f7868c1d3db0093fd7dc1760715480041418ba24a2085f5fdb2fe9175f7c1a1a</td></tr>
+<tr><td>artifact.contracts.orchestration</td><td>contracts/orchestration/orchestration.go</td><td>contract</td><td>f0cbfaff3e8df120115be1882bf01a85ce2990759fa6fc533d70f7a545aacfd5</td></tr>
+<tr><td>artifact.contracts.orchestration-ledger</td><td>contracts/orchestration/ledger.go</td><td>contract</td><td>a522070637198794f55ee4c24cd62fa2153d96bc3278974c7f9c4033d9b6fa2b</td></tr>
+<tr><td>artifact.contracts.orchestration-visibility</td><td>contracts/orchestration/visibility.go</td><td>contract</td><td>731ef09858306f11f50a87e36de368476abeb365d53ccd6e6229136c72f23699</td></tr>
+<tr><td>artifact.contracts.orchestration-bff</td><td>contracts/orchestration/bff.go</td><td>contract</td><td>f89a468ee2d1ee53994d3c051598afcb67043339450ef89bb715924328c0f549</td></tr>
+<tr><td>artifact.contracts.attachment</td><td>contracts/attachment/attachment.go</td><td>contract</td><td>18311d6530e4fced7157ddb1d7c65424ab9662919d22257bf5cf7ceb3ba115fa</td></tr>
+<tr><td>artifact.contracts.provenance</td><td>contracts/provenance/provenance.go</td><td>contract</td><td>c110915ee41b472faa8c6ffea094b80606544e0025b8513f9adef575b4c717a0</td></tr>
+<tr><td>artifact.contracts.orchestration-proto</td><td>api/proto/builders/v1/orchestration.proto</td><td>contract</td><td>f61306a7052bc32eabb74fe1b5f6ba5c9814077a2ddc6582f0c04e9fcc01f82f</td></tr>
+<tr><td>artifact.projection.spec-markdown</td><td>projections/b2b-federation-contracts.md</td><td>projection</td><td>derived</td></tr>
+<tr><td>artifact.projection.spec-html</td><td>projections/b2b-federation-contracts.html</td><td>projection</td><td>derived</td></tr>
+<tr><td>artifact.schema.system-specification</td><td>schemas/system-specification-v4.xsd</td><td>schema</td><td>efb60a221e950a9eb74f705961047055c2cfa40cc269ec6aac8d9131fd45b197</td></tr>
+<tr><td>artifact.schema.b2b-architecture</td><td>schemas/b2b-architecture-v1.xsd</td><td>schema</td><td>a007f2fd976ee6a6d1664f456f0af004798321d89e034c71fc0b87645891a9c8</td></tr>
+</table>
+<h2>Sealed revisions</h2>
+<ul>
+<li>revision 1: Sealed baseline architecture across all 9 sovereign repositories.</li>
+<li>revision 2: Sealed revision 2: sovereign repository source-pointers for all 9 components and agent runtime alignment (sandbox set and typed metadata-endpoint deny). The semantic-hash is the SHA-256 of the xmllint --c14n canonical form of this document with the bay:history element removed (its tail whitespace retained), so the hash covers every sealed section without self-reference.</li>
+<li>revision 3: Sealed revision 3: multi-platform WireGuard engine support and explicit x-mesh gossip and fabric port declarations, resolving Issue #11.</li>
+<li>revision 4: Sealed revision 4: multi-cloud environment tiering and isolation policy with dev/prod prefixing and project-level cloud boundary separation across GCP, AWS, and Azure.</li>
+<li>revision 5: Sealed revision 5: 100% container-native architecture transition across GCP Cloud Run, AWS ECS Fargate, and Azure Container Apps.</li>
+<li>revision 6: Sealed revision 6: pure container topology invariant (100% ECS Fargate, Cloud Run, Azure Container Apps) and hard VM prohibition across AWS, GCP, and Azure.</li>
+<li>revision 7: Sealed revision 7: contract artifacts and relationship evidence for the gateway-facing wire and facade types (issue #3 item 3); metadata 1.5.0. Semantic-hash computed as for revision 2 (SHA-256 of the xmllint --c14n canonical form with bay:history removed).</li>
+<li>revision 8: Sealed revision 8: N-1 relay-cell availability and machine-verifiable readiness contract with ordered candidate failover and circuit-only success evidence (issue #15); metadata 1.6.0. Semantic-hash computed as for revision 2 (SHA-256 of the xmllint --c14n canonical form with bay:history removed).</li>
+<li>revision 9: Sealed revision 9: truthful multi-agent orchestration, observation, attachment, and provenance contracts with the OrchestrationService formal API contract artifact (issue #19); metadata 1.7.0. Semantic-hash computed as for revision 2 (SHA-256 of the xmllint --c14n canonical form with bay:history removed).</li>
+</ul>
+</body>
+</html>
