@@ -1,0 +1,55 @@
+{
+  "attachment_body": "parity input document",
+  "attachment_digest": "a716995dde19efb55e1a69c8d4802239f7f355eb5c7b43ca499679062db34d6f",
+  "chain_head": "54938dfd58b9e030ca6d55d35f8f5e916647bd73489728bd0a91f9b8bdc2323c",
+  "events": [
+    {
+      "schema_version": "builders.federation.orchestration_event.v1",
+      "event_id": "e-parity-1",
+      "seq": 1,
+      "run_id": "parity-run-1",
+      "actor_id": "parity-pm",
+      "tenant_id": "parity-tenant",
+      "kind": "pm_start",
+      "correlation_id": "corr-1",
+      "visibility": "tenant",
+      "summary": "pm online",
+      "timestamp_ms": 1700000000000,
+      "audit_hash": "6183bf48054de9bd786fdc093374bff6afc4aa12eff7faf312f7375515588ebd"
+    },
+    {
+      "schema_version": "builders.federation.orchestration_event.v1",
+      "event_id": "e-parity-2",
+      "seq": 2,
+      "run_id": "parity-run-1",
+      "task_id": "parity-task-1",
+      "actor_id": "parity-builder",
+      "tenant_id": "parity-tenant",
+      "kind": "progress",
+      "causation_id": "e-parity-1",
+      "correlation_id": "corr-1",
+      "visibility": "tenant",
+      "summary": "halfway",
+      "timestamp_ms": 1700000001000,
+      "audit_hash": "613e989255a43e8c5149ac455f92fcf3e272a8514d97fe2cb46afda4b8f24aea"
+    },
+    {
+      "schema_version": "builders.federation.orchestration_event.v1",
+      "event_id": "e-parity-3",
+      "seq": 3,
+      "run_id": "parity-run-1",
+      "actor_id": "parity-pm",
+      "tenant_id": "parity-tenant",
+      "kind": "synthesis",
+      "causation_id": "e-parity-2",
+      "correlation_id": "corr-1",
+      "visibility": "tenant",
+      "summary": "merged result",
+      "timestamp_ms": 1700000002000,
+      "audit_hash": "54938dfd58b9e030ca6d55d35f8f5e916647bd73489728bd0a91f9b8bdc2323c"
+    }
+  ],
+  "genesis_audit": "796e917bde92a648b80e803094b895bcc38a7a6bea7ac26f7b12e1810b069199",
+  "provenance_sha256": "e85f2a6a920d6ec866b8fcda5836c706608f3e381d76e47e31d6e9087d61b164",
+  "run_id": "parity-run-1"
+}

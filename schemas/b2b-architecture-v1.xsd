@@ -6,7 +6,7 @@
   targetNamespace="urn:b2b:architecture:1.0"
   elementFormDefault="qualified"
   attributeFormDefault="unqualified"
-  version="1.2.0">
+  version="1.3.0">
 
   <xs:import namespace="urn:baylife:system-specification:4.0" schemaLocation="system-specification-v4.xsd"/>
 
@@ -35,6 +35,10 @@
           <xs:element name="http-endpoint" type="bay:nonBlankStringType"/>
           <xs:element name="postgres-migrations-count" type="xs:positiveInteger"/>
           <xs:element name="advisory-lock-hex" type="bay:nonBlankStringType"/>
+          <!-- Invariant (issue #19): the control plane is the authoritative
+               orchestration/attachment ledger and server projection. -->
+          <xs:element name="orchestration-ledger" type="bay:nonBlankStringType" minOccurs="0"/>
+          <xs:element name="attachment-ledger" type="bay:nonBlankStringType" minOccurs="0"/>
         </xs:sequence>
       </xs:extension>
     </xs:complexContent>
@@ -89,6 +93,10 @@
           <xs:element name="graph-driver-required" type="bay:nonBlankStringType"/>
           <!-- Invariant: link-local cloud metadata endpoints (169.254.169.254 / 169.254.170.2) must be denied to untrusted code. -->
           <xs:element name="metadata-endpoints-denied" type="xs:boolean"/>
+          <!-- Invariant (issue #19): Agent Kit container participant mode with
+               immutable runtime provenance. -->
+          <xs:element name="participant-mode" type="bay:nonBlankStringType" minOccurs="0"/>
+          <xs:element name="runtime-provenance" type="bay:nonBlankStringType" minOccurs="0"/>
         </xs:sequence>
       </xs:extension>
     </xs:complexContent>
@@ -103,6 +111,9 @@
           <xs:element name="grpc-client-mode" type="bay:nonBlankStringType"/>
           <!-- Invariant: all mutating actions must follow the Backend-For-Frontend (BFF) Command Pattern -->
           <xs:element name="command-architecture" type="bay:nonBlankStringType" minOccurs="0"/>
+          <!-- Invariant (issue #19): typed observation projection and BFF
+               command evidence only; no direct ledger access. -->
+          <xs:element name="observation-projection" type="bay:nonBlankStringType" minOccurs="0"/>
         </xs:sequence>
       </xs:extension>
     </xs:complexContent>
@@ -130,6 +141,10 @@
           <xs:element name="pure-container-topology" type="xs:boolean" minOccurs="0"/>
           <xs:element name="vm-prohibition" type="xs:boolean" minOccurs="0"/>
           <xs:element name="builder-container-count-per-org" type="xs:positiveInteger" minOccurs="0"/>
+          <!-- Invariant (issue #19): one identity/session/container per
+               participant; GCP Cloud Run, Azure ACA/ACI, AWS ECS
+               Fargate-only. No VM vocabulary may appear here. -->
+          <xs:element name="orchestration-runtimes" type="bay:nonBlankStringType" minOccurs="0"/>
         </xs:sequence>
       </xs:extension>
     </xs:complexContent>
