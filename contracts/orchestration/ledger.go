@@ -100,7 +100,13 @@ const MinBuildersForAcceptance = 2
 // ValidateParticipants checks the roster: every slot well-formed, exactly
 // one PM, at least one builder, at least one reviewer whose agent kind
 // differs from the PM (different-agent review), and one distinct
-// session/workload/container triple per participant.
+// session/workload/container triple per BOUND participant.
+//
+// Status (revision 10) separates browser-proposed slots from control-bound
+// participants: invited entries carry role/agent kind only and need no
+// binding yet; every other state requires the full distinct triple plus a
+// provenance ref. Unknown states fail closed; legacy rows without status
+// normalize explicitly (bound triple present reads active, else invited).
 func ValidateParticipants(participants []AgentParticipant) error {
 	if len(participants) == 0 {
 		return fmt.Errorf("%w: empty roster", ErrTeamShape)
@@ -126,26 +132,32 @@ func ValidateParticipants(participants []AgentParticipant) error {
 		if !ValidAgentKind(p.AgentKind) {
 			return fmt.Errorf("%w: %q", ErrUnknownAgentKind, p.AgentKind)
 		}
-		for _, binding := range []struct {
-			name string
-			id   string
-			seen map[string]bool
-		}{
-			{"session", p.SessionID, seenSession},
-			{"workload", p.WorkloadID, seenWorkload},
-			{"container", p.ContainerID, seenContainer},
-		} {
-			if strings.TrimSpace(binding.id) == "" {
-				return fmt.Errorf("%w: empty %s id for %q", ErrTeamShape, binding.name, p.ParticipantID)
-			}
-			if binding.seen[binding.id] {
-				return fmt.Errorf("%w: %s id %q shared by two participants",
-					ErrDuplicateParticipant, binding.name, binding.id)
-			}
-			binding.seen[binding.id] = true
+		status := NormalizeParticipantStatus(p)
+		if !ValidParticipantStatus(status) {
+			return fmt.Errorf("%w: %q", ErrUnknownParticipantStatus, p.Status)
 		}
-		if strings.TrimSpace(p.RuntimeProvenanceID) == "" {
-			return fmt.Errorf("%w: empty provenance ref for %q", ErrTeamShape, p.ParticipantID)
+		if status != ParticipantInvited {
+			for _, binding := range []struct {
+				name string
+				id   string
+				seen map[string]bool
+			}{
+				{"session", p.SessionID, seenSession},
+				{"workload", p.WorkloadID, seenWorkload},
+				{"container", p.ContainerID, seenContainer},
+			} {
+				if strings.TrimSpace(binding.id) == "" {
+					return fmt.Errorf("%w: empty %s id for %q", ErrTeamShape, binding.name, p.ParticipantID)
+				}
+				if binding.seen[binding.id] {
+					return fmt.Errorf("%w: %s id %q shared by two participants",
+						ErrDuplicateParticipant, binding.name, binding.id)
+				}
+				binding.seen[binding.id] = true
+			}
+			if strings.TrimSpace(p.RuntimeProvenanceID) == "" {
+				return fmt.Errorf("%w: empty provenance ref for %q", ErrTeamShape, p.ParticipantID)
+			}
 		}
 		switch p.Role {
 		case RolePM:

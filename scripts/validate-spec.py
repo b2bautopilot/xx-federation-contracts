@@ -11,17 +11,23 @@ declared_hashes = {
     "schemas/b2b-architecture-v1.xsd": "a007f2fd976ee6a6d1664f456f0af004798321d89e034c71fc0b87645891a9c8",
 }
 
-# Issue #19 orchestration contract: every artifact path below must exist on
-# disk with a matching bay:artifact declaration (checked generically in
-# step 3); presence itself is enforced in step 5.
+# Issue #19 orchestration contract, extended by issue #21 revision 10:
+# every artifact path below must exist on disk with a matching
+# bay:artifact declaration (checked generically in step 3); presence
+# itself is enforced in step 5.
 required_orchestration_artifacts = [
     "contracts/orchestration/orchestration.go",
     "contracts/orchestration/ledger.go",
     "contracts/orchestration/visibility.go",
     "contracts/orchestration/bff.go",
+    "contracts/orchestration/projection.go",
+    "contracts/orchestration/slots.go",
+    "contracts/orchestration/migration.go",
     "contracts/attachment/attachment.go",
+    "contracts/attachment/lifecycle.go",
     "contracts/provenance/provenance.go",
     "api/proto/builders/v1/orchestration.proto",
+    "api/proto/builders/v1/attachment.proto",
     "projections/b2b-federation-contracts.md",
     "projections/b2b-federation-contracts.html",
 ]
@@ -33,11 +39,16 @@ required_relationship_evidence = {
         "agent-telemetry",
         "attachment-capability",
         "runtime-provenance",
+        "participant-lifecycle",
+        "provenance-binding",
+        "attachment-custody",
     ],
     "rel.portal-dials-control": [
         "bff-command-envelope",
         "observation-stream",
         "attachment-evidence",
+        "observation-projection",
+        "attachment-evidence-projection",
     ],
 }
 
@@ -241,6 +252,43 @@ def check_orchestration_seal(root, root_dir, spec_xml):
         for field in fields:
             if field not in have:
                 failures.append(f"{comp_id} missing typed field: {field}")
+
+    # (c2) Migration target (issue #21): the control-plane
+    # postgres-migrations-count equals the Go PostgresMigrationTarget, and
+    # the component description honestly maps every served migration with
+    # its downstream entity id and code-only status. The drift correction
+    # (revision 9 declared 57 while downstream had integrated 58) must stay
+    # recorded with its no-live-migration honesty note.
+    control = components.get("comp.builders-control")
+    if control is not None:
+        count = ""
+        description = ""
+        for child in control:
+            if local_name(child.tag) == "postgres-migrations-count" and child.text:
+                count = child.text.strip()
+            if local_name(child.tag) == "description" and child.text:
+                description = child.text
+        go_target = None
+        migration_go = os.path.join(root_dir, "contracts", "orchestration", "migration.go")
+        try:
+            with open(migration_go, encoding="utf-8") as f:
+                match = re.search(r"PostgresMigrationTarget\s*=\s*(\d+)", f.read())
+                if match:
+                    go_target = match.group(1)
+        except OSError:
+            go_target = None
+        if go_target is None:
+            failures.append("Go PostgresMigrationTarget absent")
+        elif count != go_target:
+            failures.append(
+                f"migration target drift: XML declares {count} != Go enforces {go_target}"
+            )
+        for keyword in ["000058_orchestration_ledger", "000059_attachment_custody",
+                        "migration 60", "code-only", "no live database"]:
+            if keyword not in description:
+                failures.append(
+                    f"comp.builders-control description missing migration record {keyword!r}"
+                )
 
     # (d) Cloud execution vocabulary: container runtimes only. GCP runs
     # Cloud Run, Azure runs ACA/ACI, AWS stays ECS Fargate-only; any VM
