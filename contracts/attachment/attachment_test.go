@@ -139,6 +139,112 @@ func TestFetchTargetDenyList(t *testing.T) {
 	}
 }
 
+func TestFetchTargetReviewNegatives(t *testing.T) {
+	denied := []string{
+		"http://169.254.169.254./latest/meta-data/",
+		"http://127.0.0.1./doc",
+		"http://10.0.0.1./doc",
+		"https://metadata.google.internal./doc",
+		"http://control:9090/doc",
+		"http://worker-1:8080/x",
+		"https://example.com/%2e%2e/secret",
+		"https://example.com/%2E%2E%2Fsecret",
+		"https://example.com/a/%252e%252e/b",
+		"http://2130706433/doc",  // 127.0.0.1 as decimal integer
+		"http://3232235777/doc",  // 192.168.1.1 as decimal integer
+		"http://0x7f.0.0.1/doc",  // 127.0.0.1 as dotted hex
+		"http://0x7f000001/doc",  // 127.0.0.1 as hex integer
+		"http://0177.0.0.01/doc", // 127.0.0.1 as dotted octal
+		"http://10.0.0.1.16777216/doc",
+		"http://999.999.999.999/doc", // malformed numeric host
+		"http://[::ffff:127.0.0.1]/doc",
+		"http://[::ffff:10.0.0.1]/doc",
+		"http://0.0.0.0/doc",
+		"http://[::]/doc",
+		"https://svc.corp/doc",
+		"https://db.lan/doc",
+		"https://cache.local/doc",
+		"http://169.254.169.254:80/",
+		"https://cafe.1234/doc", // numeric TLD
+	}
+	for _, raw := range denied {
+		if err := ValidateFetchTarget(raw); err == nil {
+			t.Errorf("fetch target %q must be denied", raw)
+		} else if strings.Contains(err.Error(), "169.254") ||
+			strings.Contains(err.Error(), "127.0") ||
+			strings.Contains(err.Error(), "10.0.0") ||
+			strings.Contains(err.Error(), "metadata") ||
+			strings.Contains(err.Error(), "control") {
+			t.Errorf("denial for %q echoes the host: %v", raw, err)
+		}
+	}
+	allowed := []string{
+		"https://partner.example.com/docs/input-1",
+		"https://example.com./ok", // FQDN root dot canonicalizes
+		"https://[2001:db8::1]/x",
+		"https://münchen.de/doc",
+		"http://93.184.216.34/doc",
+	}
+	for _, raw := range allowed {
+		if err := ValidateFetchTarget(raw); err != nil {
+			t.Errorf("fetch target %q must be allowed: %v", raw, err)
+		}
+	}
+}
+
+func TestResolvedIPRevalidation(t *testing.T) {
+	for _, ip := range []string{"10.1.2.3", "192.168.0.1", "169.254.169.254", "127.0.0.1", "::1", "::ffff:10.0.0.1", "not-an-ip", ""} {
+		if err := ValidateResolvedIP(ip); err == nil {
+			t.Errorf("resolved IP %q must be denied", ip)
+		} else if ip != "" && strings.Contains(err.Error(), ip) {
+			t.Errorf("resolved-IP denial echoes the address: %v", err)
+		}
+	}
+	for _, ip := range []string{"93.184.216.34", "2001:db8::1"} {
+		if err := ValidateResolvedIP(ip); err != nil {
+			t.Errorf("public IP %q must pass: %v", ip, err)
+		}
+	}
+}
+
+func TestActiveContentEnforced(t *testing.T) {
+	// Declared executable content is rejected at reference validation,
+	// hence never fetchable.
+	for _, mime := range []string{
+		"text/html", "TEXT/HTML; charset=utf-8", "application/javascript",
+		"application/x-msdownload", "Application/X-Executable",
+	} {
+		ref := testRef()
+		ref.MIME = mime
+		if err := ValidateRef(ref, 1000); err == nil {
+			t.Errorf("MIME %q must fail closed at ValidateRef", mime)
+		}
+		if err := ref.Fetchable(1000); err == nil {
+			t.Errorf("MIME %q must not be fetchable", mime)
+		}
+	}
+	// Sniffed executable content fails body verification even when the
+	// declared MIME agrees with the sniff: agreement is not safety.
+	body := []byte("<html>evil</html>")
+	ref := testRef()
+	ref.SizeBytes = int64(len(body))
+	ref.SHA256Hex = DigestHex(body)
+	ref.MIME = "text/html"
+	if err := VerifyBody(ref, body, "text/html"); err == nil {
+		t.Error("sniffed HTML must fail closed even when declared agrees")
+	}
+	// Declared-vs-sniffed mismatch fails closed on clean types too.
+	plain := []byte("hello run input")
+	ref = testRef()
+	if err := VerifyBody(ref, plain, "application/pdf"); err == nil {
+		t.Error("declared-vs-sniffed mismatch must fail closed")
+	}
+	// Case/parameter normalization: same type in any case passes.
+	if err := VerifyBody(ref, plain, "Text/Plain; charset=utf-8"); err != nil {
+		t.Errorf("normalized MIME must pass: %v", err)
+	}
+}
+
 func TestArchiveBombBudget(t *testing.T) {
 	if err := CheckArchiveBudget(10, 1<<20, 10<<20); err != nil {
 		t.Errorf("sane archive: %v", err)

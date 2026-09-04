@@ -115,7 +115,7 @@ func TestStrictDecodeRejectsUnknownFields(t *testing.T) {
 
 func TestSequenceIsMonotonicAndGapFree(t *testing.T) {
 	l := mustLedger(t)
-	for i, kind := range []string{EventPMStart, EventProgress, EventProgress} {
+	for i, kind := range []string{EventProgress, EventProgress, EventProgress} {
 		ev, err := l.Append(clientEv(kind), strings.Repeat("e", 3)+string(rune('1'+i)), 1001+int64(i), VisibilityTenant)
 		if err != nil {
 			t.Fatalf("append %d: %v", i, err)
@@ -136,7 +136,7 @@ func TestSequenceIsMonotonicAndGapFree(t *testing.T) {
 
 func TestDuplicateEventIDRejected(t *testing.T) {
 	l := mustLedger(t)
-	if _, err := l.Append(clientEv(EventPMStart), "e-dup", 1001, VisibilityTenant); err != nil {
+	if _, err := l.Append(clientEv(EventProgress), "e-dup", 1001, VisibilityTenant); err != nil {
 		t.Fatalf("first append: %v", err)
 	}
 	if _, err := l.Append(clientEv(EventProgress), "e-dup", 1002, VisibilityTenant); err == nil {
@@ -146,12 +146,12 @@ func TestDuplicateEventIDRejected(t *testing.T) {
 
 func TestTenantMismatchFailsClosed(t *testing.T) {
 	l := mustLedger(t)
-	ev := clientEv(EventPMStart)
+	ev := clientEv(EventProgress)
 	ev.TenantID = "tenant-evil"
 	if _, err := l.Append(ev, "e-1", 1001, VisibilityTenant); err == nil {
 		t.Error("cross-tenant event must fail closed")
 	}
-	ev = clientEv(EventPMStart)
+	ev = clientEv(EventProgress)
 	ev.RunID = "run-other"
 	if _, err := l.Append(ev, "e-2", 1001, VisibilityTenant); err == nil {
 		t.Error("cross-run event must fail closed as out of scope")
@@ -160,7 +160,7 @@ func TestTenantMismatchFailsClosed(t *testing.T) {
 
 func TestTerminalRunSealsLedger(t *testing.T) {
 	l := mustLedger(t)
-	if _, err := l.Append(clientEv(EventPMStart), "e-1", 1001, VisibilityTenant); err != nil {
+	if _, err := l.Append(clientEv(EventProgress), "e-1", 1001, VisibilityTenant); err != nil {
 		t.Fatalf("append: %v", err)
 	}
 	runEv := clientEv(EventCompletion)
@@ -219,7 +219,7 @@ func TestTaskTransitionGuardedOnAppend(t *testing.T) {
 
 func TestCursorScopeEnforced(t *testing.T) {
 	l := mustLedger(t)
-	if _, err := l.Append(clientEv(EventPMStart), "e-1", 1001, VisibilityTenant); err != nil {
+	if _, err := l.Append(clientEv(EventProgress), "e-1", 1001, VisibilityTenant); err != nil {
 		t.Fatalf("append: %v", err)
 	}
 	// Cross-run cursor replay fails closed.
@@ -337,6 +337,27 @@ func TestResultKindsRequireSummary(t *testing.T) {
 	ev.Summary = "ok\x00hidden"
 	if err := ValidateClientEvent(ev); err == nil {
 		t.Error("control-byte summary must fail closed")
+	}
+}
+
+func TestTaskSummaryWhitespaceTolerance(t *testing.T) {
+	// A trailing newline is tolerated: the comparison runs against trimmed text.
+	if err := ValidateTaskSummary("builder one finished the draft\n"); err != nil {
+		t.Errorf("trailing newline must be tolerated: %v", err)
+	}
+	if err := ValidateTaskSummary("  padded summary  \n\t"); err != nil {
+		t.Errorf("surrounding whitespace must be tolerated: %v", err)
+	}
+	// Genuinely altered or unsafe content still fails closed.
+	if err := ValidateTaskSummary("ok\x00hidden"); err == nil {
+		t.Error("control-byte summary must fail closed")
+	}
+	if err := ValidateTaskSummary(strings.Repeat("s", MaxTaskSummaryRunes+1)); err == nil {
+		t.Error("over-long summary must fail closed")
+	}
+	// Interior newlines are legitimate explicit text and survive.
+	if err := ValidateTaskSummary("line one\nline two"); err != nil {
+		t.Errorf("interior newline must pass: %v", err)
 	}
 }
 

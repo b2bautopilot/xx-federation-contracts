@@ -295,7 +295,12 @@ func (l *Ledger) Append(ev ClientEvent, eventID string, timestampMS int64, visib
 		return OrchestrationEvent{}, fmt.Errorf("%w: %q", ErrDuplicateEvent, eventID)
 	}
 	wantSeq := int64(len(l.Events) + 1)
-	if _, err := l.applyStateGuard(ev); err != nil {
+	// Transactional append: compute the full transition plan WITHOUT
+	// mutation, then stamp/validate the event, then append, and only then
+	// commit state. Any failure before commit leaves run state, task
+	// states, the event list, the sequence, and the head hash untouched.
+	plan, err := l.computePlan(ev)
+	if err != nil {
 		return OrchestrationEvent{}, err
 	}
 	stamped, err := StampEvent(ev, eventID, wantSeq, timestampMS, visibility, l.headHash)
@@ -305,65 +310,183 @@ func (l *Ledger) Append(ev ClientEvent, eventID string, timestampMS int64, visib
 	l.Events = append(l.Events, stamped)
 	l.seenIDs[eventID] = true
 	l.headHash = stamped.AuditHash
+	plan.commit(l)
 	return stamped, nil
 }
 
-// applyStateGuard enforces the lifecycle consequence of one event: run moves
-// only along legal edges, task moves only along legal edges, and no task
-// (or the run) records a second terminal result. It returns the task state
-// the event would establish.
-func (l *Ledger) applyStateGuard(ev ClientEvent) (string, error) {
-	switch ev.Kind {
-	case EventRequest, EventAuthorization, EventPMStart, EventPlanPublication,
-		EventAssignment, EventAcknowledgment, EventProgress, EventHandoff,
-		EventDecision, EventReview, EventSynthesis:
-		// Non-terminal lifecycle signals: no state move by themselves.
-		if ev.TaskID != "" {
-			task, ok := l.Tasks[ev.TaskID]
-			if !ok {
-				return "", fmt.Errorf("%w: unknown task %q", ErrTaskDAG, ev.TaskID)
-			}
-			if IsTerminalTaskState(task.State) {
-				return "", fmt.Errorf("%w: task %q is %s", ErrDuplicateTerminal, ev.TaskID, task.State)
-			}
-		}
-		return "", nil
-	case EventCompletion, EventFailure, EventTimeout, EventCancellation:
-		if ev.TaskID != "" {
-			task, ok := l.Tasks[ev.TaskID]
-			if !ok {
-				return "", fmt.Errorf("%w: unknown task %q", ErrTaskDAG, ev.TaskID)
-			}
-			if IsTerminalTaskState(task.State) {
-				return "", fmt.Errorf("%w: task %q already %s", ErrDuplicateTerminal, ev.TaskID, task.State)
-			}
-			next := map[string]string{
-				EventCompletion:   TaskDone,
-				EventFailure:      TaskFailed,
-				EventTimeout:      TaskTimedOut,
-				EventCancellation: TaskCancelled,
-			}[ev.Kind]
-			if !AllowedTaskTransition(task.State, next) {
-				return "", fmt.Errorf("%w: task %q %s -> %s",
-					ErrIllegalTransition, ev.TaskID, task.State, next)
-			}
+// transitionPlan is the state consequence of one event, computed purely and
+// committed only after the event stamps, validates, and appends. An empty
+// runNext means the run does not move; taskNext maps task ids to their
+// post-event state; taskTerminal marks tasks recording a terminal result.
+type transitionPlan struct {
+	runNext      string
+	taskNext     map[string]string
+	taskTerminal map[string]bool
+}
+
+// commit applies a computed plan. It runs only after a successful append.
+func (p transitionPlan) commit(l *Ledger) {
+	if p.runNext != "" {
+		l.State = p.runNext
+	}
+	for id, next := range p.taskNext {
+		if task, ok := l.Tasks[id]; ok {
 			task.State = next
-			task.TerminalResults++
-			return next, nil
+			if p.taskTerminal[id] {
+				task.TerminalResults++
+			}
 		}
-		next := map[string]string{
+	}
+}
+
+// runFramingKinds may only appear at run level (no task id): they describe
+// the run itself, never one task.
+var runFramingKinds = map[string]bool{
+	EventRequest:         true,
+	EventAuthorization:   true,
+	EventPMStart:         true,
+	EventPlanPublication: true,
+}
+
+// taskFramingKinds may only appear at task level: they describe one task's
+// assignment and custody, never the run.
+var taskFramingKinds = map[string]bool{
+	EventAssignment:     true,
+	EventAcknowledgment: true,
+	EventHandoff:        true,
+}
+
+// computePlan derives the lifecycle consequence of one event without mutating
+// the ledger. Every move is validated through AllowedRunTransition and
+// AllowedTaskTransition, so illegal and out-of-order events fail closed
+// here, before any stamp or write.
+func (l *Ledger) computePlan(ev ClientEvent) (transitionPlan, error) {
+	plan := transitionPlan{taskNext: map[string]string{}, taskTerminal: map[string]bool{}}
+	if !ValidEventKind(ev.Kind) {
+		return plan, fmt.Errorf("%w: %q", ErrUnknownEventKind, ev.Kind)
+	}
+	if ev.TaskID == "" {
+		return l.computeRunPlan(ev, plan)
+	}
+	return l.computeTaskPlan(ev, plan)
+}
+
+// computeRunPlan plans a run-level event: the request/authorization/PM-start
+// chain moves the run requested -> authorized -> running; plan publication,
+// progress, handoff, decision, review, and synthesis observe a running run;
+// terminal kinds move it along legal edges only.
+func (l *Ledger) computeRunPlan(ev ClientEvent, plan transitionPlan) (transitionPlan, error) {
+	if taskFramingKinds[ev.Kind] {
+		return plan, fmt.Errorf("%w: kind %q requires a task scope", ErrIllegalTransition, ev.Kind)
+	}
+	move := func(next string) (transitionPlan, error) {
+		if !AllowedRunTransition(l.State, next) {
+			return plan, fmt.Errorf("%w: run %s -> %s on %s",
+				ErrIllegalTransition, l.State, next, ev.Kind)
+		}
+		plan.runNext = next
+		return plan, nil
+	}
+	switch ev.Kind {
+	case EventRequest:
+		if l.State != RunRequested {
+			return plan, fmt.Errorf("%w: request arrives for run in %s",
+				ErrIllegalTransition, l.State)
+		}
+		return plan, nil
+	case EventAuthorization:
+		return move(RunAuthorized)
+	case EventPMStart:
+		return move(RunRunning)
+	case EventPlanPublication, EventProgress, EventHandoff,
+		EventDecision, EventReview, EventSynthesis:
+		if l.State != RunRunning {
+			return plan, fmt.Errorf("%w: kind %q outside a running run (%s)",
+				ErrIllegalTransition, ev.Kind, l.State)
+		}
+		return plan, nil
+	case EventCompletion, EventFailure, EventTimeout, EventCancellation:
+		return move(map[string]string{
 			EventCompletion:   RunCompleted,
 			EventFailure:      RunFailed,
 			EventTimeout:      RunTimedOut,
 			EventCancellation: RunCancelled,
-		}[ev.Kind]
-		if !AllowedRunTransition(l.State, next) {
-			return "", fmt.Errorf("%w: run %s -> %s", ErrIllegalTransition, l.State, next)
-		}
-		l.State = next
-		return next, nil
+		}[ev.Kind])
 	default:
-		return "", fmt.Errorf("%w: %q", ErrUnknownEventKind, ev.Kind)
+		return plan, fmt.Errorf("%w: %q", ErrUnknownEventKind, ev.Kind)
+	}
+}
+
+// computeTaskPlan plans a task-level event: assignment -> acknowledgment ->
+// progress -> review (pending -> assigned -> acknowledged -> in_progress ->
+// in_review), handoff/rework observed from in_progress or in_review,
+// decision/synthesis observed from in_review, and terminal kinds along legal
+// edges only. Task lifecycle proceeds only while the run itself is running,
+// and never past a task terminal state (duplicate terminal results fail
+// closed).
+func (l *Ledger) computeTaskPlan(ev ClientEvent, plan transitionPlan) (transitionPlan, error) {
+	if runFramingKinds[ev.Kind] {
+		return plan, fmt.Errorf("%w: kind %q is run-scoped", ErrIllegalTransition, ev.Kind)
+	}
+	task, ok := l.Tasks[ev.TaskID]
+	if !ok {
+		return plan, fmt.Errorf("%w: unknown task %q", ErrTaskDAG, ev.TaskID)
+	}
+	if l.State != RunRunning {
+		return plan, fmt.Errorf("%w: task %q event outside a running run (%s)",
+			ErrIllegalTransition, ev.TaskID, l.State)
+	}
+	if IsTerminalTaskState(task.State) {
+		return plan, fmt.Errorf("%w: task %q already %s", ErrDuplicateTerminal, ev.TaskID, task.State)
+	}
+	move := func(next string) (transitionPlan, error) {
+		if !AllowedTaskTransition(task.State, next) {
+			return plan, fmt.Errorf("%w: task %q %s -> %s on %s",
+				ErrIllegalTransition, ev.TaskID, task.State, next, ev.Kind)
+		}
+		plan.taskNext[ev.TaskID] = next
+		return plan, nil
+	}
+	observe := func(states ...string) (transitionPlan, error) {
+		for _, s := range states {
+			if task.State == s {
+				return plan, nil
+			}
+		}
+		return plan, fmt.Errorf("%w: kind %q illegal for task %q in %s",
+			ErrIllegalTransition, ev.Kind, ev.TaskID, task.State)
+	}
+	switch ev.Kind {
+	case EventAssignment:
+		return move(TaskAssigned)
+	case EventAcknowledgment:
+		return move(TaskAcknowledged)
+	case EventProgress:
+		if task.State == TaskAcknowledged {
+			return move(TaskInProgress)
+		}
+		return observe(TaskInProgress)
+	case EventHandoff:
+		return observe(TaskInProgress, TaskInReview)
+	case EventReview:
+		return move(TaskInReview)
+	case EventDecision, EventSynthesis:
+		return observe(TaskInReview)
+	case EventCompletion, EventFailure, EventTimeout, EventCancellation:
+		next := map[string]string{
+			EventCompletion:   TaskDone,
+			EventFailure:      TaskFailed,
+			EventTimeout:      TaskTimedOut,
+			EventCancellation: TaskCancelled,
+		}[ev.Kind]
+		plan, err := move(next)
+		if err != nil {
+			return plan, err
+		}
+		plan.taskTerminal[ev.TaskID] = true
+		return plan, nil
+	default:
+		return plan, fmt.Errorf("%w: %q", ErrUnknownEventKind, ev.Kind)
 	}
 }
 

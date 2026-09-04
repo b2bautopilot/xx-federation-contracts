@@ -28,6 +28,7 @@ import (
 	"fmt"
 	"net/netip"
 	"net/url"
+	"strconv"
 	"strings"
 )
 
@@ -177,6 +178,9 @@ func ValidateRef(ref AttachmentRef, nowMS int64) error {
 	if strings.TrimSpace(ref.MIME) == "" {
 		return fmt.Errorf("%w: empty MIME", ErrBadRef)
 	}
+	if !ContentAllowed(ref.MIME) {
+		return fmt.Errorf("%w: declared MIME blocked", ErrBlockedContent)
+	}
 	if ref.DisplayName != SanitizeDisplayName(ref.DisplayName) {
 		return fmt.Errorf("%w: display name not sanitized", ErrBadRef)
 	}
@@ -223,8 +227,17 @@ func VerifyBody(ref AttachmentRef, body []byte, sniffedMIME string) error {
 	if DigestHex(body) != strings.ToLower(ref.SHA256Hex) {
 		return fmt.Errorf("%w", ErrDigestMismatch)
 	}
+	// Active content fails closed on the sniffed bytes even when the
+	// declared MIME agrees: agreement with an executable type is not
+	// evidence of safety.
+	if !ContentAllowed(sniffedMIME) {
+		return fmt.Errorf("%w: sniffed MIME blocked", ErrBlockedContent)
+	}
+	if !ContentAllowed(ref.MIME) {
+		return fmt.Errorf("%w: declared MIME blocked", ErrBlockedContent)
+	}
 	if normalizeMIME(sniffedMIME) != normalizeMIME(ref.MIME) {
-		return fmt.Errorf("%w: %q vs %q", ErrMIMEMismatch, sniffedMIME, ref.MIME)
+		return fmt.Errorf("%w: declared vs sniffed", ErrMIMEMismatch)
 	}
 	return nil
 }
@@ -279,42 +292,263 @@ func CheckArchiveBudget(entries int, compressedBytes, decompressedBytes int64) e
 	return nil
 }
 
-// ValidateFetchTarget denies every unsafe fetch destination fail-closed:
-// non-http(s) schemes, embedded credentials, loopback, unspecified,
-// multicast, RFC1918 private, link-local (including the cloud metadata
-// endpoints), .internal/.localhost names, explicit ports on metadata
-// literals, and path traversal. Redirect-following is caller-owned: the
-// control plane never follows redirects; each hop re-validates here.
+// ValidateFetchTarget denies every unsafe fetch destination fail-closed.
+// Denied: non-http(s) schemes, embedded credentials, empty hosts,
+// localhost and local/internal suffixes (.localhost, .internal, .local,
+// .lan, .corp, and the cloud metadata names), single-label/container DNS
+// names, numeric TLDs, private/loopback/link-local/unspecified/multicast
+// IPs in canonical, decimal-integer, octal, hex, or IPv4-mapped IPv6 form,
+// ambiguous numeric hosts that fail to parse, and path traversal in decoded,
+// escaped, or double-encoded representation.
+//
+// Redirect and rebinding behavior (contracts-layer owned): the control plane
+// never follows redirects — every redirect target re-validates here — and
+// every DNS-resolved address re-validates through ValidateResolvedIP at
+// connect time, closing the resolve-to-connect rebinding window.
+//
+// Errors never echo the host or URL: denial strings are fixed so a rejected
+// private/internal target cannot leak through an error path (see the
+// sanitized-error invariant).
 func ValidateFetchTarget(rawURL string) error {
 	u, err := url.Parse(rawURL)
 	if err != nil {
-		return fmt.Errorf("%w: unparsable %v", ErrFetchDenied, err)
+		return fmt.Errorf("%w: unparsable URL", ErrFetchDenied)
 	}
 	if u.Scheme != "https" && u.Scheme != "http" {
-		return fmt.Errorf("%w: scheme %q", ErrFetchDenied, u.Scheme)
+		return fmt.Errorf("%w: scheme not allowed", ErrFetchDenied)
 	}
 	if u.User != nil {
 		return fmt.Errorf("%w: credentials in URL", ErrFetchDenied)
 	}
-	host := strings.ToLower(strings.TrimSpace(u.Hostname()))
+	host := canonicalHost(u.Hostname())
 	if host == "" {
 		return fmt.Errorf("%w: empty host", ErrFetchDenied)
 	}
-	if host == "localhost" || strings.HasSuffix(host, ".localhost") ||
-		strings.HasSuffix(host, ".internal") || host == "metadata.google.internal" {
-		return fmt.Errorf("%w: host %q", ErrFetchDenied, host)
+	if err := denyHost(host); err != nil {
+		return err
 	}
-	if addr, err := netip.ParseAddr(host); err == nil {
-		if addr.IsLoopback() || addr.IsUnspecified() || addr.IsMulticast() ||
-			addr.IsPrivate() || addr.IsLinkLocalUnicast() {
-			return fmt.Errorf("%w: host %q", ErrFetchDenied, host)
-		}
-	}
-	clean := u.EscapedPath()
-	if strings.Contains(clean, "..") {
-		return fmt.Errorf("%w: traversal", ErrFetchDenied)
+	if err := denyTraversal(u); err != nil {
+		return err
 	}
 	return nil
+}
+
+// canonicalHost lowercases the hostname and trims FQDN root dots, so
+// "169.254.169.254." and "metadata.google.internal." cannot evade the
+// literal and suffix rules below.
+func canonicalHost(host string) string {
+	host = strings.ToLower(strings.TrimSpace(host))
+	host = strings.TrimRight(host, ".")
+	return host
+}
+
+// deniedIP reports whether a resolved address may never be fetched:
+// loopback, unspecified, multicast, RFC1918/private, or link-local
+// (including the cloud metadata endpoints). IPv4-mapped IPv6 addresses are
+// unmapped first so ::ffff:10.0.0.1 cannot smuggle a private target.
+func deniedIP(addr netip.Addr) bool {
+	addr = addr.Unmap()
+	return addr.IsLoopback() || addr.IsUnspecified() || addr.IsMulticast() ||
+		addr.IsPrivate() || addr.IsLinkLocalUnicast()
+}
+
+// denySuffixes lists name suffixes that are never public fetch targets.
+var denySuffixes = []string{".localhost", ".internal", ".local", ".lan", ".corp"}
+
+// denyHost enforces the hostname/IP rules fail-closed, without echoing the
+// host. Canonical IP literals, alternative numeric IPv4 forms (decimal
+// integer, dotted octal/hex), and IPv6 literals are decided by parsing, so
+// legitimate public IDNs (dotted, lettered TLDs) and public IPv6 pass while
+// local names and ambiguous numerics fail.
+func denyHost(host string) error {
+	if strings.Contains(host, ":") {
+		// IPv6 literal (or garbage with colons): it must parse, else deny.
+		addr, err := netip.ParseAddr(host)
+		if err != nil || deniedIP(addr) {
+			return fmt.Errorf("%w: host denied", ErrFetchDenied)
+		}
+		return nil
+	}
+	if addr, err := netip.ParseAddr(host); err == nil {
+		if deniedIP(addr) {
+			return fmt.Errorf("%w: host denied", ErrFetchDenied)
+		}
+		return nil
+	}
+	if isDecimalNumericHost(host) {
+		// Unambiguous numeric intent (all digits and dots): it must parse
+		// as IPv4 (decimal, incl. leading-zero octal) and pass, else deny.
+		// This rejects 999.999.999.999 and friends without touching
+		// lettered hostnames.
+		addr, ok := parseAltIPv4(host)
+		if !ok || deniedIP(addr) {
+			return fmt.Errorf("%w: host denied", ErrFetchDenied)
+		}
+		return nil
+	}
+	if addr, ok := parseAltIPv4(host); ok {
+		// Hex/octal-lettered form that parses (e.g. 0x7f.0.0.1): decide by
+		// address. Forms that merely look numeric but do not parse fall
+		// through to the hostname rules, so lettered names are never
+		// rejected as "malformed IPs".
+		if deniedIP(addr) {
+			return fmt.Errorf("%w: host denied", ErrFetchDenied)
+		}
+		return nil
+	}
+	if host == "localhost" || host == "metadata.google.internal" {
+		return fmt.Errorf("%w: host denied", ErrFetchDenied)
+	}
+	for _, suffix := range denySuffixes {
+		if strings.HasSuffix(host, suffix) {
+			return fmt.Errorf("%w: host denied", ErrFetchDenied)
+		}
+	}
+	if !strings.Contains(host, ".") {
+		// Single-label/container DNS names (control, worker-1) are never
+		// public fetch targets. Dotted public IDNs and IPv6 (handled
+		// above) are unaffected.
+		return fmt.Errorf("%w: host denied", ErrFetchDenied)
+	}
+	labels := strings.Split(host, ".")
+	if isAllDigits(labels[len(labels)-1]) {
+		// Numeric TLDs are invalid in public DNS; the name is either a
+		// malformed numeric IP or local trickery.
+		return fmt.Errorf("%w: host denied", ErrFetchDenied)
+	}
+	return nil
+}
+
+// denyTraversal rejects ".." in the decoded path, the escaped path, and one
+// further decoding round (double-encoded %252e%252e), fail-closed.
+func denyTraversal(u *url.URL) error {
+	candidates := []string{u.Path, u.EscapedPath()}
+	if onceMore, err := url.PathUnescape(u.Path); err == nil {
+		candidates = append(candidates, onceMore)
+	}
+	for _, path := range candidates {
+		if strings.Contains(path, "..") {
+			return fmt.Errorf("%w: traversal", ErrFetchDenied)
+		}
+	}
+	return nil
+}
+
+// ValidateResolvedIP re-validates one DNS-resolved address at connect time.
+// DNS answers are untrusted input: a name that passed ValidateFetchTarget
+// may still resolve (or re-resolve, mid-TTL) to a private/internal address,
+// so the control plane calls this on the connected IP before sending a
+// byte. The address is never echoed.
+func ValidateResolvedIP(ip string) error {
+	addr, err := netip.ParseAddr(strings.TrimSpace(ip))
+	if err != nil || deniedIP(addr) {
+		return fmt.Errorf("%w: resolved address denied", ErrFetchDenied)
+	}
+	return nil
+}
+
+// isDecimalNumericHost reports unambiguous numeric-IPv4 intent: all decimal
+// digits and dots (e.g. 10.0.0.1, 2130706433, 0177.0.0.1, 999.999.999.999).
+func isDecimalNumericHost(host string) bool {
+	if host == "" {
+		return false
+	}
+	dots := 0
+	for _, r := range host {
+		switch {
+		case r >= '0' && r <= '9':
+		case r == '.':
+			dots++
+		default:
+			return false
+		}
+	}
+	return true
+}
+
+// isAllDigits reports whether s is one or more ASCII digits.
+func isAllDigits(s string) bool {
+	if s == "" {
+		return false
+	}
+	for _, r := range s {
+		if r < '0' || r > '9' {
+			return false
+		}
+	}
+	return true
+}
+
+// parseAltIPv4 parses alternative numeric IPv4 forms: a single decimal,
+// octal, or hex integer (2130706433, 0x7f000001), or 1-4 dotted parts each
+// in decimal, octal (leading 0), or hex (0x) with inet_aton width rules
+// (a, a.b, a.b.c, a.b.c.d). It reports false for non-numeric input.
+func parseAltIPv4(host string) (netip.Addr, bool) {
+	parts := strings.Split(host, ".")
+	if len(parts) == 0 || len(parts) > 4 {
+		return netip.Addr{}, false
+	}
+	vals := make([]uint64, len(parts))
+	for i, part := range parts {
+		if part == "" {
+			return netip.Addr{}, false
+		}
+		var (
+			v   uint64
+			err error
+		)
+		switch {
+		case len(part) > 2 && (part[:2] == "0x" || part[:2] == "0X"):
+			v, err = strconv.ParseUint(part[2:], 16, 32)
+		case len(part) > 1 && part[0] == '0':
+			v, err = strconv.ParseUint(part[1:], 8, 32)
+		default:
+			if !isAllDigits(part) {
+				return netip.Addr{}, false
+			}
+			v, err = strconv.ParseUint(part, 10, 32)
+		}
+		if err != nil {
+			return netip.Addr{}, false
+		}
+		vals[i] = v
+	}
+	var b [4]byte
+	var ok bool
+	switch len(vals) {
+	case 1:
+		if vals[0] > 0xFFFFFFFF {
+			return netip.Addr{}, false
+		}
+		v := vals[0]
+		b = [4]byte{byte(v >> 24), byte(v >> 16), byte(v >> 8), byte(v)}
+		ok = true
+	case 2:
+		ok = vals[0] <= 0xFF && putLowBits(vals[1], &b, 3, 0xFFFFFF)
+	case 3:
+		ok = vals[0] <= 0xFF && vals[1] <= 0xFF && putLowBits(vals[2], &b, 2, 0xFFFF)
+	case 4:
+		ok = vals[0] <= 0xFF && vals[1] <= 0xFF && vals[2] <= 0xFF && vals[3] <= 0xFF
+		if ok {
+			b = [4]byte{byte(vals[0]), byte(vals[1]), byte(vals[2]), byte(vals[3])}
+		}
+	}
+	if !ok {
+		return netip.Addr{}, false
+	}
+	return netip.AddrFrom4(b), true
+}
+
+// putLowBits writes the low 8*width bits of v into the tail of b (which
+// starts at b[4-width]) after range-checking against max.
+func putLowBits(v uint64, b *[4]byte, width int, max uint64) bool {
+	if v > max {
+		return false
+	}
+	for i := 0; i < width; i++ {
+		(*b)[4-width+i] = byte(v >> (8 * uint(width-1-i)))
+	}
+	return true
 }
 
 // Capability is the signed fetch/return grant for one attachment. It binds

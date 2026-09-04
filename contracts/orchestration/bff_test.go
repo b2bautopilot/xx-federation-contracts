@@ -88,7 +88,7 @@ func TestAuditReceiptSeal(t *testing.T) {
 
 func TestWatchCursorRoundTrip(t *testing.T) {
 	l := mustLedger(t)
-	for i, kind := range []string{EventPMStart, EventProgress} {
+	for i, kind := range []string{EventProgress, EventProgress} {
 		if _, err := l.Append(clientEv(kind), "w-"+string(rune('1'+i)), 1001+int64(i), VisibilityTenant); err != nil {
 			t.Fatalf("append: %v", err)
 		}

@@ -76,7 +76,10 @@ func ValidateEventSummary(kind, summary string) error {
 	return nil
 }
 
-// ValidateTaskSummary enforces the task public-summary bound.
+// ValidateTaskSummary enforces the task public-summary bound. Surrounding
+// whitespace (including a trailing newline) is tolerated: the comparison
+// runs against the trimmed text, while genuinely altered or unsafe content
+// (dropped control bytes, truncation) still fails closed.
 func ValidateTaskSummary(summary string) error {
 	if !utf8.ValidString(summary) {
 		return fmt.Errorf("%w: task summary is not valid UTF-8", ErrUnknownField)
@@ -88,7 +91,7 @@ func ValidateTaskSummary(summary string) error {
 		return fmt.Errorf("%w: task summary exceeds bound", ErrUnknownField)
 	}
 	clean, _ := SanitizeText(summary, MaxTaskSummaryRunes)
-	if clean != summary {
+	if clean != strings.TrimSpace(summary) {
 		return fmt.Errorf("%w: task summary carries unsanitized bytes", ErrUnknownField)
 	}
 	return nil

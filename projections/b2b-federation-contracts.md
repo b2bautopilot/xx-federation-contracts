@@ -169,10 +169,10 @@ Flutter Hub reconciles snapshots against builders-control.
 | artifact.contracts.gatewaypool | gatewaypool/gatewaypool.go | contract | fdd68bb440d70652bb04cb36bd71cac38b1f653ff44927b53c92151239403e5e |
 | artifact.contracts.relayavailability | contracts/relayavailability/availability.go | contract | f7868c1d3db0093fd7dc1760715480041418ba24a2085f5fdb2fe9175f7c1a1a |
 | artifact.contracts.orchestration | contracts/orchestration/orchestration.go | contract | f0cbfaff3e8df120115be1882bf01a85ce2990759fa6fc533d70f7a545aacfd5 |
-| artifact.contracts.orchestration-ledger | contracts/orchestration/ledger.go | contract | a522070637198794f55ee4c24cd62fa2153d96bc3278974c7f9c4033d9b6fa2b |
-| artifact.contracts.orchestration-visibility | contracts/orchestration/visibility.go | contract | 731ef09858306f11f50a87e36de368476abeb365d53ccd6e6229136c72f23699 |
+| artifact.contracts.orchestration-ledger | contracts/orchestration/ledger.go | contract | 81cd7adcf4717ed92fbe851570998f31411b661b0d8cad95bfb8c5668b4df4de |
+| artifact.contracts.orchestration-visibility | contracts/orchestration/visibility.go | contract | d88a1e869c7b1ae165affdfccb6469889bc227a7b103671461b84e92ed49770f |
 | artifact.contracts.orchestration-bff | contracts/orchestration/bff.go | contract | f89a468ee2d1ee53994d3c051598afcb67043339450ef89bb715924328c0f549 |
-| artifact.contracts.attachment | contracts/attachment/attachment.go | contract | 18311d6530e4fced7157ddb1d7c65424ab9662919d22257bf5cf7ceb3ba115fa |
+| artifact.contracts.attachment | contracts/attachment/attachment.go | contract | 5610d418985921f56c1e79b2cf0bd532b03b22350cd7b6f5bd45d051cb63e463 |
 | artifact.contracts.provenance | contracts/provenance/provenance.go | contract | c110915ee41b472faa8c6ffea094b80606544e0025b8513f9adef575b4c717a0 |
 | artifact.contracts.orchestration-proto | api/proto/builders/v1/orchestration.proto | contract | f61306a7052bc32eabb74fe1b5f6ba5c9814077a2ddc6582f0c04e9fcc01f82f |
 | artifact.projection.spec-markdown | projections/b2b-federation-contracts.md | projection | derived |
